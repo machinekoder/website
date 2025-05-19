@@ -1,0 +1,50 @@
+<!--
+{
+  "title": "Qt Creator for Gtkmm and Automake Projects",
+  "date": "2017-02-03T06:54:23",
+  "slug": "qt-creator-for-gtkmm-and-automake-projects",
+  "original_url": "https://machinekoder.com/qt-creator-for-gtkmm-and-automake-projects/",
+  "featured_image": ""
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">2</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, you will learn how to use Qt Creator for <a href="https://www.gnu.org/software/automake/">Automake</a> and <a href="http://www.gtkmm.org/en/">Gtkmm</a> project. Yes, you read correctly I will explain how to create Gtk projects with Qt-Creator.</p>
+<h2>But why?</h2>
+<p>You may ask two things:</p>
+<ul>
+<li><strong>How does it come that I work on a Gtkmm + Automake project?</strong>
+<p>I currently work on a low-level GUI application for a customer. The GUI runs on a 128x64 OLED display. Qt is also suitable for this application. However, Qt Embedded license fees and the limited complexity of the application make Gtkmm also very attractive.</p>
+</li>
+<li>
+<p><strong>Why should I use Qt Creator for anything else than Qt projects?</strong></p>
+<p><a href="http://doc.qt.io/qtcreator/">Qt Creator</a> is more than just a Qt IDE. It's one of the few cross-platform C++ IDEs and in my opinion an excellent one. Besides the standard IDE features like code completion, refactoring tools and debugging it features advanced tools like <a href="http://doc.qt.io/qtcreator/creator-clang-static-analyzer.html">Clang static code analysis</a>, <a href="https://doc-snapshots.qt.io/qtcreator-4.2/creator-scxml.html">SCXML statechart modeling</a>, and Valgrind memory analyzer integration. Also very vital for me: It can be customized to use Emacs key bindings (that's worth another blog post).</p>
+</li>
+</ul>
+<h2>How can I get started?</h2>
+<p>It turned out to be surprisingly easy to set-up Qt Creator for Autotools projects.</p>
+<p>First, you need to enable the AutotoolProjectManager plugin in the <em>Help &gt; About Plugins...</em> window. You need to restart Qt Creator for the changes to take effect.</p>
+<p>Now you can open any Autotools project using the <em>File &gt; Open File or Project...</em> menu. Select the top-level <code>Makefile.am</code>, then go ahead by choosing a Qt version (you are selecting just the compiler actually).</p>
+<p>You can read more about setting up an Autools project in the <a href="http://doc.qt.io/qtcreator/creator-projects-autotools.html">Qt Creator documentation</a>.</p>
+<h2>The tricky parts</h2>
+<p>Although the Qt Creator Autotools setup works pretty well out of the box, there some problems I came across when working on the Gtkmm project.</p>
+<ul>
+<li>Source and header files do not show up in the project pane
+<p>Qt Creator only knows about source files defined in any <code>Makefile.am</code>. Headers are only presented when they match a source</p>
+<p>**Workaround: ** Use the file system view.</p>
+</li>
+<li>
+<p>Anything other than <code>.cpp</code> and <code>.h</code> files does not show up in the projects pane.<br>
+Unfortunately, it seems the Autotools plugin does not detect any other files than source files.</br></p>
+<p><strong>Workaround:</strong> Use the file system view.</p>
+</li>
+<li>
+<p>Qt Creator does not find all included headers.</p>
+<p>The Autotools plugins scans any <code>-I</code> flags in the makefiles. However, it seems in some cases this does not work correctly.</p>
+<p><strong>Workaround:</strong> Qt Creator scans the <code>CPLUS_INCLUDE_PATH</code> environment variable. Either set this variable in the build environment settings of the project or in your <code>.bashrc</code> file.</p>
+</li>
+</ul>
+<h2>Conclusion</h2>
+<p>The Autotools project manager does not work flawlessly. However, the benefits of using Qt Creator overshadow these problems for me.</p>
+<p>I especially enjoy the Clang static analysis which Qt Creator runs in the background during coding. This feature really makes C++ coding a charm.</p>
+<p>I really can recommend Qt Creator as IDE for Automake projects to anyone looking for an alternative to Eclipse or if you are Qt coder who also needs to work non-Qt projects every once in a while.</p>
+<p>If you are looking for an alternative to Qt Creator for Makefile and Automake projects on Linux, I can also recommend you to take a look <a href="https://www.kdevelop.org/">KDevelop</a>.</p>
+<p>Your Machine Koder</p>

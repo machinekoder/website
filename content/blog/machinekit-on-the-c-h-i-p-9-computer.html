@@ -1,0 +1,463 @@
+<!--
+{
+  "title": "Machinekit on the C.H.I.P. 9$ computer",
+  "date": "2016-09-05T19:10:11",
+  "slug": "machinekit-on-the-c-h-i-p-9-computer",
+  "original_url": "https://machinekoder.com/machinekit-on-the-c-h-i-p-9-computer/",
+  "featured_image": "/static/blog_images/machinekit-on-the-c-h-i-p-9-computer/chip_pinouts.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">13</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This article is about using the <a href="https://getchip.com/">NextThing C.H.I.P.</a> minicomputer with Machinekit. It explains how one can write GPIO drivers for Machinekit. Furthermore, it also shows how one can build Machinekit on the CHIP and how to cross compile an RT-PREEMPT kernel for the CHIP using the CHIP-SDK.</p>
+<p>If you are more interested in installing Machinekit and a pre-compiled RT kernel on the CHIP please take a look at <a href="https://machinekoder.com/?p=122">"Getting started with Machinekit on the CHIP"</a></p>
+<p><em>UPDATE September 17 2016</em>: Applying the RT-PREEMPT kernel patch.<br>
+<em>UPDATE September 19 2016</em>: Copying <code>.dtb</code> files.<br/>
+<em>UPDATE September 22 2016</em>: Added menuconfig screenshot<br/>
+<em>UPDATE October 2 2016</em>: Fix missing information about wifi driver compile errors</br></p>
+<h2>Creating a HAL driver</h2>
+<p>To control real world objects with Machinekit, we need a so-called "driver" to interface with the world. A driver is basically a computer program, or in our case a HAL component, that controls a particular device. Particularly interesting for Machinekit are GPIO drivers for different platforms. On a desktop computer, this could, for example, be a parallel port interface. For single board computers, this usually means interfacing with a GPIO peripheral in order toggle pins exposed via pin header. Inside the Machinekit source tree, these drivers can be in <a href="https://github.com/machinekit/machinekit/tree/master/src/hal/drivers">src/hal/drivers</a>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/machinekit_arch.png"><img alt="machinekit_arch" class="alignnone size-medium wp-image-69" decoding="async" height="300" loading="lazy" sizes="(max-width: 224px) 100vw, 224px" src="/static/blog_images/machinekit-on-the-c-h-i-p-9-computer/machinekit_arch-224x300.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/machinekit_arch-224x300.png 224w, https://machinekoder.com/wp-content/uploads/2016/09/machinekit_arch-202x270.png 202w, https://machinekoder.com/wp-content/uploads/2016/09/machinekit_arch.png 611w" width="224"/></a></p>
+<p>A HAL GPIO driver exposes the GPIO pins of the target hardware as HAL pins. Pin directions and which pins should be used by the driver is usually specified at the time of loading the HAL component. When we want to add a new GPIO driver to Machinekit we have to consider following steps:</p>
+<ol>
+<li>Finding out how to control the GPIO pins of the target platform.</li>
+<li>Writing the HAL component.</li>
+<li>Integrating the HAL component in the Machinekit build process.</li>
+</ol>
+<p>Let's elaborate on these steps for the C.H.I.P.:</p>
+<h3>Controlling the C.H.I.P. GPIO pins</h3>
+<p>Taking a look the CHIP pinout graphic we can see that there are two types of GPIO pins exposed on the pin header. The 8 <em>normal</em> GPIO pins labeled <code>XIO-Pn</code> are located in the middle of the right pin header, when looking at the CHIP with USB connector positioned upwards. These pins can be controlled using a Linux file system driver. The relevant files are contained in the <code>/sys/class/gpio</code> directory. There is an official <a href="https://github.com/xtacocorex/CHIP_IO">Python library</a> for controlling these pins. However, since the file system driver GPIO pins are rather slow, we are more interested in the second type of GPIO available on the CHIP.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts.jpg"><img alt="chip_pinouts" class="alignnone size-medium wp-image-70" decoding="async" height="219" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/machinekit-on-the-c-h-i-p-9-computer/chip_pinouts-300x219.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts-300x219.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts-360x263.jpg 360w, https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts.jpg 600w" width="300"/></a></p>
+<p>The second type of GPIO pins exposed on the CHIP are the <code>CSIDn</code> pins. Some users from the community <a href="https://bbs.nextthing.co/t/solved-gpio-direct-access/2971">found out</a> how to control theses pins using <em>mmap</em>. Controlling the peripheral over shared memory also used in the <a href="https://github.com/machinekit/machinekit/blob/master/src/hal/drivers/hal_bb_gpio.c">GPIO driver for the BeagleBone Black</a>. The original <code>libsoc</code> included with the <code>sunxi-tools</code> contains wrappers for controlling the pins over <code>mmap</code>. User <em>yevgeniy-logachev</em> additionally added <a href="https://github.com/yevgeniy-logachev/libsoc/blob/master/test/mmap_gpio_test.c">an example</a> how to use the libsoc functions to the repository. Let's take a look the functions exposed by the <code>libsoc_mmap_gpio</code> module.</p>
+<pre><code class="c">// initialize the module
+libsoc_mmap_gpio_init();
+// request a pin handle
+mmap_gpio *gpio_output = libsoc_mmap_gpio_request('E', 4);
+// set the pin direction
+libsoc_mmap_gpio_set_direction(gpio_output, OUTPUT);
+// get the pin direction
+mmap_gpio_direction libsoc_mmap_gpio_get_direction(mmap_gpio* gpio);
+// set the pin level
+libsoc_mmap_gpio_set_level(gpio_output, HIGH);
+// get the pin level
+mmap_gpio_level libsoc_mmap_gpio_get_level(mmap_gpio* gpio);
+// free a pin handle
+libsoc_mmap_gpio_free(gpio_output);
+// cleanup the module
+libsoc_mmap_gpio_shutdown();
+</code></pre>
+<p>These functions are straightforward to use with the exception of the <code>libsoc_mmap_gpio_request</code> function. In order to access a specific pin we need to know its address. I found a table of the pin address in the <a href="https://bbs.nextthing.co/t/solved-gpio-pin-numbers/2931">CHIP forum</a>:</p>
+<pre><code>CSID0   132
+CSID1   133
+CSID2   134
+CSID3   135
+CSID4   136
+CSID5   137
+CSID6   138
+CSID7   139
+</code></pre>
+<p>So far so good. But the <code>libsoc_mmap_gpio_request</code> function requires two arguments. A port and a pin number. Luckily user <em>infrapro</em> explained how to understand this: <em>"Pin 132 is equivalent for port PE4, so we use 2nd and 3+rd letters to port access"</em>. It turned out that port and pin numbers are actually easy to calculate:</p>
+<pre><code>PORT = NUMBER / 32
+PIN = NUMBER % 32
+</code></pre>
+<p>Using this information we have everything ready to implement the HAL component.</p>
+<h3>CHIP GPIO HAL component</h3>
+<p>For implementing the HAL GPIO driver I used the <code>hal_bb_gpio</code> driver as a reference. This time, we directly use the HAL C API in the component. This means that we are responsible for creating and deleting the HAL component and pins ourself. For this purpose, it is required to implement two functions in our component. <code>int rtapi_app_main(void)</code> is responsible for creating the HAL component. <code>void rtapi_app_exit(void)</code> is responsible for cleaning up everything we created. It is important that we free any memory we may have allocated in this function.</p>
+<p>Note that I will not post the complete source here, but rather explain the most important parts of the code. I recommend you taking a look at the complete source code in the <a href="https://github.com/machinekit/machinekit/">Machinekit repository</a>.</p>
+<p>So let's dive into the code:</p>
+<p>In the beginning of the C file, we have to include the RTAPI and HAL header files, as well as the header file of the libsoc mmap library.</p>
+<pre><code class="c">#include "rtapi.h"
+#include "rtapi_app.h"
+#include "hal.h"
+
+#include "chip/libsoc_mmap_gpio.h"
+</code></pre>
+<p>I skip explaining the other included header files, which are common C headers and proceed with the platform checks and HAL module macros.</p>
+<pre><code class="c">#if !defined(BUILD_SYS_USER_DSO)
+#error "This driver is for usermode threads only"
+#endif
+#if !defined(TARGET_PLATFORM_CHIP)
+#error "This driver is for the BeagleBone platform only"
+#endif
+
+#define MODNAME "hal_chip_gpio"
+
+MODULE_AUTHOR("Alexander Roessler");
+MODULE_DESCRIPTION("Driver for C.H.I.P. GPIO pins");
+MODULE_LICENSE("GPL");
+</code></pre>
+<p>First of all, we check that this component is only built for usermode threads. The second check verifies that the correct build platform is enabled. Then we define the module name used throughout the HAL component. The <code>MODULE_AUTHOR</code> and <code>MODULE_DESCRIPTION</code> macros are pretty self-explaining. <code>MODULE_LICENSE</code> needs to be <code>GPL</code> if the HAL component is compiled into a kernel module.</p>
+<p>Since creation and deletion of HAL pins have to be handled in HAL component, HAL components using the C API usually use a structure for storing pointers to all our HAL pins. For the CHIP GPIO driver this structure looks as follows:</p>
+<pre><code class="c">#define HEADERS          1
+#define PINS_PER_HEADER  8
+
+typedef struct {
+    hal_bit_t* input_pins[PINS_PER_HEADER * HEADERS]; // array of pointers to bivts
+    hal_bit_t* output_pins[PINS_PER_HEADER * HEADERS]; // array of pointers to bits
+    hal_bit_t  *input_inv[PINS_PER_HEADER * HEADERS];
+    hal_bit_t  *output_inv[PINS_PER_HEADER * HEADERS];
+} port_data_t;
+
+static port_data_t *port_data;
+static const char *modname = MODNAME;
+static mmap_gpio * pins[PINS_PER_HEADER * HEADERS];
+</code></pre>
+<p>As can be seen, the arrays are designed either storing the maximum amount of output or input pins, since the pins are configured at runtime. The last line of the code fragment creates an array for storing the GPIO pin handles for the libsoc mmap module.</p>
+<p>Now let's take a look at the macros which are used for HAL component parameter passing:</p>
+<pre><code class="c">static char *input_pins;
+RTAPI_MP_STRING(input_pins, "input pins, comma separated.  P0-P7 use 0-7");
+
+static char *output_pins;
+RTAPI_MP_STRING(output_pins, "output pins, comma separated.  P0-P7 use 0-7");
+</code></pre>
+<p>The code means that the parameters are passed as a string which can be accessed with the variables <code>input_pins</code> and <code>output_pins</code>. As stated in the comments, the pins have to be passed as comma separated list, e.g. <code>0,3,4</code>.</p>
+<p>This leads us to the initialization code of the HAL component in <code>rtapi_app_main</code>. First of all the HAL component is created:</p>
+<pre><code class="c">// init driver
+comp_id = hal_init(modname);
+if(comp_id &lt; 0) {
+    rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: hal_init() failed\n", modname);
+    return -1;
+}
+</code></pre>
+<p>Then memory is allocated for the structure to store our HAL pin handles:</p>
+<pre><code class="c">// allocate port memory
+port_data = hal_malloc(num_ports * sizeof(port_data_t));
+if(port_data == 0) {
+    rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: hal_malloc() failed\n", modname);
+    hal_exit(comp_id);
+    return -1;
+}
+</code></pre>
+<p>Note that num_ports is always 1 for the CHIP driver.</p>
+<p>Next, the control module is initialized by calling the <code>configure_control_module</code> function. Since the libsoc module handles the <code>mmap</code> call we only need to call the correct function. In the BeagleBone Black driver, the <code>mmap</code> function is called instead.</p>
+<pre><code class="c">static void configure_control_module() {
+    int ret;
+
+    ret = libsoc_mmap_gpio_init();
+    if (ret != 0)
+    {
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: Unable to map Control Module: %s", modname, strerror(errno));
+        exit(1);
+    }
+}
+</code></pre>
+<p>Finally, it is time to create the HAL pins. Since the creation of the output pins works completely similar I only add the code fragment for adding the input pins.</p>
+<pre><code class="c">    // configure input pins
+    if(input_pins != NULL) {
+        data = input_pins;
+        while((token = strtok(data, ",")) != NULL) {
+            int pin = strtol(token, NULL, 10);
+            mmap_gpio *gpio_pin;
+
+            if((pin &lt; 0) || (pin &gt; 7)) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: invalid pin number '%d'. Valid pins are 0-7 for P0-P7.\n", modname, pin);
+                hal_exit(comp_id);
+                return -1;
+            }
+
+            data = NULL; // after the first call, subsequent calls to strtok need to be on NULL
+
+            // Add HAL pin
+            retval = hal_pin_bit_newf(HAL_OUT, &amp;(port_data-&gt;input_pins[pin]), comp_id, "chip_gpio.in-%02d", pin);
+
+            if(retval &lt; 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: pin %02d could not export pin, err: %d\n", modname, pin, retval);
+                hal_exit(comp_id);
+                return -1;
+            }
+
+            // Add HAL pin
+            retval = hal_pin_bit_newf(HAL_IN, &amp;(port_data-&gt;input_inv[pin]), comp_id, "chip_gpio.in-%02d.invert", pin);
+
+            if(retval &lt; 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: pin %02d could not export pin, err: %d\n", modname, pin, retval);
+                hal_exit(comp_id);
+                return -1;
+            }
+
+            // Initialize HAL pin
+            *(port_data-&gt;input_inv[pin]) = 0;
+
+            // Initialize GPIO pin
+            gpio_pin = get_gpio(pin);
+            if (gpio_pin == NULL)
+            {
+                rtapi_print("%s: ERROR: failed to open GPIO pin %d", modname, pin);
+                hal_exit(comp_id);
+                return -1;
+            }
+            pins[pin] = gpio_pin;
+
+            retval = libsoc_mmap_gpio_set_direction(gpio_pin, INPUT);
+            if (retval == DIRECTION_ERROR)
+            {
+                rtapi_print("%s: ERROR: failed to set GPIO direction %d", modname, pin);
+                hal_exit(comp_id);
+                return -1;
+            }
+            rtapi_print("pin %d setup with mode input\n", pin);
+        }
+    }
+</code></pre>
+<p>Walking trough the code we can see that we first split the string by using <code>strtok</code>. Then we create two HAL pins (one for the pin value and the other for the invert pin) by calling <code>hal_pin_bit_newf</code>. After that, we make sure that the input pins are initialized with a default value. The actual libsoc calls are issued to get a pin handle and to set the pin direction.</p>
+<p>The final step for initializing the HAL component is to register the HAL functions. In the case of a GPIO driver, there are usually two functions. One for reading the GPIO pins <code>read</code> and one for writing the GPIO pins <code>write</code>. It is good practice to use two separate functions for this operations so we can read the GPIO pins at the beginning of our thread cycle and update the output pins at the end of the cycle.</p>
+<pre><code class="c">// export functions
+rtapi_snprintf(name, sizeof(name), "chip_gpio.write");
+retval = hal_export_funct(name, write_port, port_data, 0, 0, comp_id);
+if(retval &lt; 0) {
+    rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: port %d write funct export failed\n", modname, n);
+    hal_exit(comp_id);
+    return -1;
+}
+
+rtapi_snprintf(name, sizeof(name), "chip_gpio.read");
+retval = hal_export_funct(name, read_port, port_data, 0, 0, comp_id);
+if(retval &lt; 0) {
+    rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: port %d read funct export failed\n", modname, n);
+    hal_exit(comp_id);
+    return -1;
+}
+</code></pre>
+<p>The HAL component cleanup function <code>rtapi_app_exit</code> is very simple. We just free our pins handles and release the memory map:</p>
+<pre><code class="c">void rtapi_app_exit(void)
+{
+    int i;
+
+    hal_exit(comp_id);
+
+    for(i=0; i&lt;HEADERS*PINS_PER_HEADER; i++) {
+        libsoc_mmap_gpio_free(pins[i]);
+    }
+    libsoc_mmap_gpio_shutdown();
+}
+</code></pre>
+<p>This leaves us with the two remaining functions for writing and reading the GPIO pin states into the HAL component. Again, they are very similar so I will only explain the <code>write_port</code> function.</p>
+<pre><code class="c">static void write_port(void *arg, long period)
+{
+    int i;
+    port_data_t *port = (port_data_t *)arg;
+
+    // set output states
+    for(i=0; i&lt;HEADERS*PINS_PER_HEADER; i++) {
+        int retval;
+
+        if (port-&gt;output_pins[i] == NULL) {
+            continue; // short circuit if hal hasn't malloc'd a bit at this location
+        }
+
+        mmap_gpio *pin = pins[i];
+
+        if((*port-&gt;output_pins[i] ^ *(port-&gt;output_inv[i])) == 0) {
+            retval = libsoc_mmap_gpio_set_level(pin, LOW);
+        }
+        else {
+            retval = libsoc_mmap_gpio_set_level(pin, HIGH);
+        }
+        if (retval == LEVEL_ERROR) {
+            rtapi_print("%s: ERROR: failed to set GPIO pin %d", modname, i);
+            return;
+        }
+    }
+}
+</code></pre>
+<p>Passed to the function as an argument is the port data structure <code>port</code>. Note that we have explicitly defined this behavior when registering the HAL functions. Using a for loop, we iterate over all pins in the structure. This makes it necessary to check for the pin beeing already created with comparing the pointer to <code>NULL</code>. Remember, that not necessarily all pins are output pins.</p>
+<p>Next, we take the GPIO pin handle in order to use the <code>libsoc</code> functions. Then we set the GPIO pin level using the <code>libsoc_mmap_gpio_set_level</code> function. The <em>output</em> pin and <em>invert</em> pin of the HAL component are <em>XORed</em>, in order to get the expected behavior.</p>
+<p>The <code>read_port</code> function is very similar. However, instead of setting the pin level, we read the pin level from the GPIO port and apply it to the HAL <em>input</em> pins. (Remember that physical input pins are <code>HAL_OUT</code> pins).</p>
+<h3>Adding the GPIO driver to the Machinekit project</h3>
+<p>The last step of creating the HAL GPIO driver involves adding the HAL component to the Machinekit build process. Since the driver component is platform dependent, it is good practice to only build it if the correct target platform is specified, in our case <code>--with-platform-chip</code>.</p>
+<p>In order to achieve this, I had to edit the following files:<br/>
+* <code>src/Makefile</code><br/>
+* <code>src/Makefile.inc.in</code><br/>
+* <code>src/configure.ac</code></p>
+<p>Long story short, I basically used the <code>TARGET_PLATFORM_ZEDBOARD</code> as reference. If you are interested in what exactly I had to modify please take a look at the <a href="https://github.com/machinekit/machinekit/pull/1054">pull request</a>.</p>
+<h2>Using the CHIP with Machinekit</h2>
+<p>After having a HAL GPIO driver ready for the CHIP, it is time to prepare the CHIP for running Machinekit with RT PREEMPT kernel.</p>
+<h2>Flashing the CHIP</h2>
+<p>First of all, we need to flash the CHIP with a fresh Debian Linux image. The easiest way to achieve this is to use the <a href="http://flash.getchip.com">CHIP online flasher</a>, which can be executed from the Chrome or Chromium browser. There is not a lot say about this step since it just worked!</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing.png"><img alt="chip_flashing" class="alignnone size-medium wp-image-71" decoding="async" height="300" loading="lazy" sizes="(max-width: 270px) 100vw, 270px" src="/static/blog_images/machinekit-on-the-c-h-i-p-9-computer/chip_flashing-270x300.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing-270x300.png 270w, https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing-768x853.png 768w, https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing-921x1024.png 921w, https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing-243x270.png 243w, https://machinekoder.com/wp-content/uploads/2016/09/chip_flashing.png 1492w" width="270"/></a></p>
+<h2>Building Machinekit on the CHIP</h2>
+<p>The next step involves building Machinekit from source on the CHIP. This is necessary since the CHIP GPIO driver <a href="https://github.com/machinekit/machinekit/pull/1054">has not been merged into upstream Machinekit yet</a>. Once the patch has been merged and made its way into the ARM Debian packages, you can safely skip this step. However, it may still be useful for you as a reference if you want to port Machinekit to a new platform.</p>
+<p><strong>EDIT</strong>: The patch is merged into upstream Machinekit. You can now install the Machinekit via <code>apt-get install machinekit machinekit-dev machinekit-rt-preempt</code> after adding the Machinekit repository.</p>
+<h3>Add the Machinekit repository</h3>
+<p>First, we need to add the Debian package repository containing the Machinekit packages:</p>
+<pre><code class="bash">sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c \
+  "echo 'deb http://deb.machinekit.io/debian jessie main' &gt; \
+  /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+</code></pre>
+<h3>Compile Machinekit</h3>
+<p>The steps from the <a href="http://www.machinekit.io/docs/developing/machinekit-developing/">Machinekit documentation</a> work perfectly fine.</p>
+<pre><code class="bash"># remove Machinekit pacakges if already installed
+sudo apt-get remove --purge machinekit
+# install dependencies
+sudo apt-get install libczmq-dev python-zmq libjansson-dev pkg-config \
+  libwebsockets-dev libxenomai-dev python-pyftpdlib cython bwidget lsb-release python-avahi
+# install the build packages
+sudo apt-get install git dpkg-dev
+sudo apt-get install --no-install-recommends devscripts equivs
+mkdir repos
+cd repos
+git clone https://github.com/machinekoder/machinekit
+cd machinekit
+git checkout origin/chip-io
+debian/configure -pr
+sudo mk-build-deps -ir
+# build and configure Machinekit
+cd src
+./autogen.sh
+./configure --with-platform-chip --with-rt-preempt
+make
+sudo make setuid
+</code></pre>
+<p>During the Machinekit <code>configure</code> step, I hit a problem at the step of looking for the <code>Boost::Python</code> module. Basically, the error message was not very helpful, since it did not describe the correct problem. Taking a look in the <code>build.log</code> finally gave me a useful hint: <code>virtual memory exhausted: Cannot allocate memory</code>. Turned out that the CHIP ran out of virtual memory during the test build.</p>
+<p>First I tried to specify the virtual memory using the following commands:</p>
+<pre><code class="bash">ulimit -a
+ulimit -m 60000
+ulimit -v 60000
+</code></pre>
+<p>However, this did not fix the <code>configure</code> problems. <em>Chengxi</em> pointed out that this problem can be fixed by mounting a USB drive as swap partition. So I connected a 8GB flash drive (make sure there is no data on the flash drive) to the CHIP and issued the following commands:</p>
+<pre><code>sudo mkswap /dev/sda1
+sudo swapon /dev/sda1
+</code></pre>
+<p>Voila! Now running <code>make</code> the build worked perfectly fine. (Just took some time...)</p>
+<p>Don't forget to register Machinekit in the <code>.bashrc</code>:</p>
+<pre><code class="bash">sh -c "echo 'if [ -f ~/repos/machinekit/scripts/rip-environment ]; then\n\
+    source ~/repos/machinekit/scripts/rip-environment\n\
+    echo \"Environment set up for running Machinekit\"\n\
+fi\n' &gt;&gt; ~/.bashrc"
+</code></pre>
+<h2>Build a RT PREEMPT kernel for CHIP</h2>
+<p>Last but not least, it is time to compile a kernel with RT PREEMPT patch for the CHIP. Compiling the CHIP kernel turned out to be surprisingly easy since NextThing provides a pre-configured Vagrant configuration for cross compiling to the CHIP target.</p>
+<p>First one needs to download and install the <a href="https://github.com/NextThingCo/CHIP-SDK">CHIP SDK</a> on the computer (not on the CHIP).</p>
+<pre><code class="bash">git clone https://github.com/NextThingCo/CHIP-SDK.git
+cd CHIP-SDK
+vagrant up
+</code></pre>
+<p>Once the SDK is up and running we can login:</p>
+<pre><code class="bash">vagrant ssh
+</code></pre>
+<p>For compiling the Linux kernel for the CHIP-SDK I used this <a href="http://www.raspibo.org/wiki/index.php/Compile_the_Linux_kernel_for_Chip:_my_personal_HOWTO">wiki entry</a> as a reference.</p>
+<p>First of all, one needs to install the build dependencies and the cross compiling toolchain:</p>
+<pre><code class="bash"># install build dependencies
+apt-get install git build-essential fakeroot kernel-package zlib1g-dev libncurses5-dev lzop
+# install cross compiling toolchain
+apt-get install gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+</code></pre>
+<p>Next one needs to check out the Linux kernel source from NextThingCo:</p>
+<pre><code class="bash">cd
+git clone https://github.com/NextThingCo/CHIP-linux.git
+cd CHIP-linux
+</code></pre>
+<p>Check out the git branch containing the kernel version matching the kernel installed on your CHIP. In my case this was <code>debian/4.4.11-ntc-1</code>:</p>
+<pre><code class="bash">git checkout -b debian/4.4.11-ntc-1 origin/debian/4.4.11-ntc-1
+</code></pre>
+<p>Copy the kernel configuration from the CHIP to the CHIP SDK. In order to do that, I enabled the shared folder in the CHIP-SDK Vagrant configuration <code>.Vagrantfile</code>. On my host Linux computer I used <code>scp</code> to copy the config file over.</p>
+<pre><code class="bash">cd &lt;path to CHIP-SDK&gt;
+scp chip@chip.local:/boot/config-4.4.11 .
+</code></pre>
+<p>Copy this file to your kernel build tree <code>CHIP-linux</code>.</p>
+<p>Now you need to patch the Linux kernel with the <code>PREEMPT_RT</code> patch. The patch can be found at <a href="https://www.kernel.org/pub/linux/kernel/projects/rt/4.4/">kernel.org</a>. I used the 4.4.12 patch since there is no patch exactly matching the 4.4.11 kernel.</p>
+<pre><code class="bash">wget https://www.kernel.org/pub/linux/kernel/projects/rt/4.4/older/patch-4.4.12-rt20.patch.gz
+cat patch-4.4.12-rt20.patch.gz | patch -p1
+</code></pre>
+<p>Next you need to run <code>menuconfig</code>:</p>
+<pre><code class="bash">make ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- menuconfig
+</code></pre>
+<p>In the kernel configuration enable the following settings</p>
+<ul>
+<li><code>CONFIG_PREEMPT_RT_FULL</code>: Kernel Features &gt; Preemption Model &gt; Fully Preemptible Kernel (RT)</li>
+<li>Enable <code>HIGH_RES_TIMERS</code>: General Setup &gt; Timers subsystem &gt; High Resolution Timer Support (already enabled)</li>
+<li>add a local version suffix: General setup &gt; Local version - append to kernel release, I used <code>rt</code> as suffix</li>
+</ul>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig.png"><img alt="kernel_chip_menuconfig" class="alignnone size-medium wp-image-120" decoding="async" height="145" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/machinekit-on-the-c-h-i-p-9-computer/kernel_chip_menuconfig-300x145.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig-300x145.png 300w, https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig-768x372.png 768w, https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig-1024x496.png 1024w, https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig-360x174.png 360w, https://machinekoder.com/wp-content/uploads/2016/09/kernel_chip_menuconfig.png 1164w" width="300"/></a></p>
+<p>Now it is time to compile the kernel:</p>
+<pre><code class="bash">make ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- -j 2
+</code></pre>
+<p>After compiling one needs to install the kernel modules to <code>/tmp/lib</code>:</p>
+<pre><code class="bash">mkdir -p /tmp/lib
+make ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- INSTALL_MOD_PATH=/tmp/lib modules_install
+</code></pre>
+<p>Additionally, you need to compile the RT8723BS module since it is an out-of-tree module:</p>
+<pre><code class="bash"># clone the repository
+cd
+git clone https://github.com/NextThingCo/RTL8723BS.git
+# apply the debian patches
+cd RTL8723BS
+git checkout -b debian origin/debian
+for i in debian/patches/0*; do  echo $i; patch -p 1 &lt;$i ; done
+# remove the no-error=date-time compiler flag
+sed '/EXTRA_CFLAGS += -Wno-error=date-time/d' -i Makefile
+# remove the no-error=incompatible-pointer-types compiler flag
+sed '/EXTRA_CFLAGS += Wno-error=incompatible-pointer-types/d' -i Makefile
+# compile the module
+make -j 2 CONFIG_PLATFORM_ARM_SUNxI=y ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- -C /home/vagrant/CHIP-linux/ M=$PWD CONFIG_RTL8723BS=m  INSTALL_MOD_PATH=/tmp/lib
+make -j 2 CONFIG_PLATFORM_ARM_SUNxI=y ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- -C ~/CHIP-linux/ M=$PWD CONFIG_RTL8723BS=m  INSTALL_MOD_PATH=/tmp/lib modules_install
+</code></pre>
+<p>Now the Linux kernel is ready to be deployed to the CHIP. I used the approach of replacing the existing kernel on the CHIP. Note that this might lead to an unbootable CHIP if there is an error in the kernel configuration or build. For details on how to manually boot a specific kernel please refer to <a href="http://www.raspibo.org/wiki/index.php/Compile_the_Linux_kernel_for_Chip:_my_personal_HOWTO">this wiki</a>.</p>
+<p>The following lines need to be executed on the CHIP SDK VM. Note that I have mounted the root folder of the SDK on my host machine to <code>~/CHIP-SDK</code> on the guest machine. This can be done be enabling the shared folder in the <code>.Vagrantfile</code> of the SDK.</p>
+<pre><code class="bash">mkdir -p ~/CHIP-SDK/deploy
+cd ~/CHIP-linux/
+cp arch/arm/boot/zImage ../CHIP-SDK/deploy/vmlinuz-4.4.11-rt20+
+cp .config ../CHIP-SDK/deploy/config-4.4.11-rt20+
+cp System.map ../CHIP-SDK/deploy/System.map-4.4.11-rt20+
+cp arch/arm/boot/dts/*.dtb ../CHIP-SDK/deploy/linux-image-4.4.11-rt20+/
+cd /tmp/lib/lib/modules
+cp -r 4.4.11-rt20+/ ~/CHIP-SDK/deploy/
+# compress the kernel 
+cd ~/CHIP-SDK
+tar -czvf 4.4.11-rt20.tar.gz deploy/
+</code></pre>
+<p>This leaves us with a complete Linux kernel for the CHIP in the <code>deploy</code> folder of the <code>CHIP-SDK</code>. I used <code>scp</code> to copy the files to the CHIP:</p>
+<pre><code class="bash"># copy the kernel to the CHIP
+scp 4.4.11-rt20.tar.gz chip@chip.local:/tmp/
+# connect to the CHIP
+ssh chip@chip.local
+cd /tmp/
+tar xvz 4.4.11-rt20.tar.gz
+cd deploy
+sudo cp -r 4.4.11-rt20+/ /lib/modules/
+cp -r -v linux-image-4.4.11-rt20+ /usr/lib/
+mkdir -p /boot/dtbs/4.4.11-rt20/
+cp -v linux-image-4.4.11-rt20+/sun5i-r8-chip.dtb /boot/dtbs/4.4.11-rt20/sun5i-r8-chip.dtb
+sudo cp System.map-4.4.11-rt20+ config-4.4.11-rt20+ vmlinuz-4.4.11-rt20+ /boot/
+cd /boot/
+# overwrite Linux image
+sudo cp vmlinuz-4.4.11-rt20+ zImage
+# reboot the CHIP
+sudo reboot
+</code></pre>
+<p>After a reboot, you should have a RT PREEMPT kernel running on the CHIP.</p>
+<pre><code>$uname -a
+Linux chip 4.4.11rt+ #1 SMP PREEMPT Wed Aug 31 13:45:03 UTC 2016 GNU/Linux
+</code></pre>
+<h2>Short usage example</h2>
+<p>To test the newly created CHIP GPIO driver one can use the following short example, which can be found in <code>configs/ARM/CHIP/</code> in the Machinekit repository.</p>
+<pre><code class="python">from machinekit import hal
+from machinekit import rtapi as rt
+
+# we need a thread to execute the component functions
+rt.newthread('main-thread', 1000000, fp=True)
+
+# load GPIO driver
+rt.loadrt('hal_chip_gpio', output_pins='0,1,2,3', input_pins='4,5,6,7')
+gpio = hal.Component('chip_gpio')
+gpio.pin('out-00').link('square')
+
+# load siggen
+rt.loadrt('siggen')
+siggen = hal.Component('siggen.0')
+siggen.pin('frequency').set(10.0)
+siggen.pin('clock').link('square')
+
+# setup update functions
+hal.addf('chip_gpio.read', 'main-thread')
+hal.addf('siggen.0.update', 'main-thread')
+hal.addf('chip_gpio.write', 'main-thread')
+
+# ready to start the threads
+hal.start_threads()
+</code></pre>
+<p>This example HAL configurations initializes the <code>hal_chip_gpio</code> HAL component with 4 input and 4 output pins. Furthermore, the <code>siggen</code> component is used to output a square waveform with 10Hz on one of the pins. Using a jumper wire we can use this configuration to prove that both, input and output pins, work with our driver.</p>
+<h2>Wrapping up</h2>
+<p>In this blog post, we discussed how to add a new GPIO driver to Machinekit, using the NextThing CHIP as an example. Furthermore, it is explained how one can compile a RT PREEMPT kernel for the platform. The result is a CHIP with working RT PREEMPT kernel and GPIO driver for Machinekit. Moreover, a short example code is presented to test the GPIO driver. The complete code can be found in the <a href="https://github.com/machinekit/machinekit/pull/1054">pull request</a> on GitHub. In further blog posts, I will explore how to use the ported CHIP to control some real world objects.</p>
+<p>I hope you enjoyed reading this blog post and I appreciate your comments and feedback.</p>
+<p>Your Machine Koder</p>

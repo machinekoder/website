@@ -1,0 +1,250 @@
+<!--
+{
+  "title": "Machinetalk explained Part 5: Code Generation",
+  "date": "2016-12-13T18:49:04",
+  "slug": "machinetalk-explained-part-5-code-generation",
+  "original_url": "https://machinekoder.com/machinetalk-explained-part-5-code-generation/",
+  "featured_image": "/static/blog_images/machinetalk-explained-part-5-code-generation/code_generation.svg.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">10</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is part 5 of the <em>Machinetalk explained</em> series describing the concepts and ideas behind the Machinetalk middleware.</p>
+<p>In this section, I describe the part of Machinetalk which probably needs most explanation. What I'm talking about is Machinetalk GSL - language bindings for Machinetalk using code generation.</p>
+<p>But before we delve deep into code generation and meta-programming I recommend you to read the previous parts of <em>Machinetalk explained</em>:</p>
+<ul>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-1-introduction/">Part 1: Introduction</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-2-middleware-requirements/">Part 2: Middleware Requirements</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-3-technologies/">Part 3: Technologies</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-4-hal-remote/">Part 4: HAL Remote</a></strong></li>
+</ul>
+<h2>A Case for Model-Driven Software Development</h2>
+<p>Before I start to explain MOP (Model Oriented Programming) it is important that you understand the reasons behind choosing this development approach.</p>
+<p>I began to work on Machinetalk when I started the <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp project</a>. The project is a combination of UI components and Machinetalk bindings written in <a href="http://qt.io">Qt/C++</a>. It turned out that coding the language bindings rather simple using ZeroMQ and Protobuf. However, the hardest part was to look up the Machinetalk API in the Machinekit code sources and to implement the protocol flow correctly.</p>
+<p>In the Fall last year I began to work on the Machinetalk bindings for Python <a href="https://github.com/machinekit/pymachinetalk">pymachinetalk</a>. For implementing the Python language bindings, I had to do almost the same things as for the Qt/C++ language bindings. Furthermore, I noticed that I also had to implement almost the same things for every new Machinetalk service I added to Machinekit.</p>
+<p>As a programmer, I know that whenever you need to do a repetitive task it is time for abstraction. Your abstraction can be a function, an object or a module. But, we are usually only taught how to abstract in a particular programming language.</p>
+<p>However, this particular problem is only partially solvable using language dependent means of abstraction. For example, we could introduce abstract Machinetalk service classes in C++ to make the task less repetitive. You can easily see that we need to do the same thing again in Python and any other programming language. The problem gets worse the fewer means of abstraction a particular programming language offers - think of a C Machinetalk language binding for example.</p>
+<p>Other middleware solutions such as <a href="http://www.ros.org/">ROS</a> have same the problem. Vendors provide a reference implementation for a particular programming language the rest is left to the community. However, living in a strongly heterogeneous world, we cannot accept middleware solutions that work only for a particular programming language</p>
+<p>When studying the ZeroMQ reference manual - <a href="http://zguide.zeromq.org/page:all">the zguide</a> I came across the <a href="http://zguide.zeromq.org/page:all#Code-Generation">Code Generation section</a> mentioning the <a href="https://github.com/imatix/gsl">GSL</a> tool. It easily caught my attention since iMatix claims to use it to build protocols themselves.</p>
+<p>Now that you have seen the problems that lead me to explore the MOP approach for Machinetalk it is time to explain Model-Oriented Programming.</p>
+<h2>Model-Oriented Programming</h2>
+<p>Model-Oriented Programming (MOP) is the application of model-driven development methods to programming. In comparison to traditional Model Driven Architecture (MDA) development approaches it does not depend on any general-purpose modeling language such as the Unified Modeling Language (UML).</p>
+<p><a href="http://dl.acm.org/citation.cfm?id=1370738">Scientists found</a> that model-centric software development approaches have not been widely adopted although they are in general <a href="http://link.springer.com/chapter/10.1007/0-306-48738-1_1">considered good practice</a>. A majority of the interviewed programmers claim that they do not think the generated output of code generators can be considered decent code.</p>
+<p>Furthermore, general-purpose modeling languages are often found to be too generic. In MOP this problem is approached by developing not only domain-specific abstract models but also code generators for domain-specific modeling languages. Therefore, MOP can be applied to express concepts related to the problem domain. From these models not only code skeletons without a function can be generated but also full working software components.</p>
+<p>MOP is most useful for projects that require repetitive coding. Moreover, models created in the process of MOP are technology and language independent and convertible to domain-specific and optimized source code. An advantage compared to general-purpose modeling languages is that code generators can be optimized to generate <a href="https://imatix-legacy.github.io/mop/introduction.html">high quality and human-readable source code</a>.</p>
+<h2>iMatix Generator Scripting Language</h2>
+<p>GSL by iMatix is an open source code construction tool and MOP language.<br>
+GSL uses simple XML documents without style sheets and namespaces as model files. Therefore, GSL is a Textual Modeling Language (TML) and shares all the benefits of <a href="https://arxiv.org/abs/1409.6623">text-based modeling</a>.</br></p>
+<p>You need no special software to edit GSL files. However, I found it most useful to use GNU Emacs to edit the gsl files. Put the editor into the major-mode for the corresponding language (e.g. <code>python-mode</code>) and enable the following minor mode by issuing <code>gsl-mode</code>.</p>
+<pre><code class="elisp">(define-minor-mode gsl-mode
+"Highlight two successive newlines."
+:lighter " gsl"
+(if gsl-mode
+    (highlight-regexp "\\(^\\..*\\)\n" 'hi-green-b)
+  (unhighlight-regexp "\\(^\\..*\\)\n"))
+(if gsl-mode
+    (highlight-regexp "\\(\\$(.*?)\\)" 'hi-red-b)
+  (unhighlight-regexp "\\(\\$(.*?)\\)")))
+</code></pre>
+<p>I found the electric indent mode very annoying when editing GSL files. You can easily turn it off by issuing <code>electric-indent-mode</code>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg.png"><img alt="gsl-svg" class="aligncenter size-large wp-image-248" decoding="async" height="243" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/gsl.svg-1024x388.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg-1024x388.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg-300x114.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg-768x291.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg-360x136.png 360w, https://machinekoder.com/wp-content/uploads/2016/12/gsl.svg.png 1932w" width="640"/></a></p>
+<p>The GSL interpreter uses XML and GSL documents as input. It extracts data from the XML files and pushes it into a data tree.</p>
+<p>The GSL interpreter interprets GSL documents in template or script mode depending on the selected mode.</p>
+<p>If the interpreter is in script mode it interprets each line as GSL command except lines starting with a <code>.</code> symbol. All other lines are directly output to the specified output file.</p>
+<p>In script mode, the interpreter does the exact opposite.</p>
+<h3>GSL Example</h3>
+<p>I personally prefer examples over long descriptions. Therefore, I created a simple GSL example for generating Python classes from an abstract model.</p>
+<p>The model <code>model.xml</code> looks as follows:</p>
+<pre><code class="xml">&lt;?xml version = "1.0" ?&gt;
+&lt;module name = "foo"&gt;
+    &lt;class name = "bar"&gt;
+        &lt;property name = "foo bar"/&gt;
+        &lt;property name = "bar"/&gt;
+    &lt;/class&gt;
+&lt;/module&gt;
+</code></pre>
+<p>To generate code from the model we need a GSL template. The template <code>pygen.gsl</code> looks as follows:</p>
+<pre><code class="python">.template 1
+.output "$(module.name:c).py"
+.for class
+class $(class.Name)(object):
+    def __init__(self):
+.  for property
+        self._$(name:c) = None
+.  endfor
+
+.  for property
+    @property
+    def $(name:c)(self):
+        print('queried "$(name)"')
+        return self._$(name:c)
+
+. endfor
+.endfor
+.endtemplate
+</code></pre>
+<p>As you see, without proper code highlighting the template becomes rather confusing. With the <code>gsl-mode</code> enabled the same code looks as follows:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/gslcode.png"><img alt="gslcode" class="aligncenter size-large wp-image-249" decoding="async" height="272" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/gslcode-1024x435.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/gslcode-1024x435.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/gslcode-300x128.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/gslcode-768x326.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/gslcode-360x153.png 360w, https://machinekoder.com/wp-content/uploads/2016/12/gslcode.png 1388w" width="640"/></a></p>
+<p>When we execute the script with the following command <code>gsl -script:pygen.gsl model.xml</code>  this results in the Python module <code>foo.py</code>:</p>
+<pre><code class="python">class Bar(object):
+    def __init__(self):
+        self._foo_bar = None
+        self._bar = None
+
+    @property
+    def foo_bar(self):
+        print('queried "foo bar"')
+        return self._foo_bar
+
+    @property
+    def bar(self):
+        print('queried "bar"')
+        return self._bar
+
+</code></pre>
+<p>Of course, we wouldn't create a model for such a simple problem in real life. However, it demonstrates the capabilities and the simplicity of GSL very well. We also see that the approach becomes saner with increasing complexity of the model which would be in this case if we add more modules, classes, and properties.</p>
+<p>According to a <a href="https://news.ycombinator.com/item?id=11558007">discussion on Reddit</a>, GSL is a second-order meta-programming language. Second-order meta-programming means using this language one can build Domain Specific Languages, which is what we need for the Machinetalk code generator.</p>
+<h2>Modeling the Machinetalk Middleware</h2>
+<p>Now that we have seen the tools used for generating the Machinetalk language bindings it is time to explain the modeling approach.</p>
+<p>The Machinetalk middleware design is split into sub-models to decrease the complexity of individual models and to separate the scope of each model.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/code_generation.svg.png"><img alt="code_generation-svg" class="aligncenter size-large wp-image-247" decoding="async" height="361" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/code_generation.svg-1024x578.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/code_generation.svg-1024x578.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/code_generation.svg-300x169.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/code_generation.svg-768x434.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/code_generation.svg-360x203.png 360w" width="640"/></a></p>
+<ul>
+<li><strong>Protocol models</strong> contain messages and their relation to the Machinetalk Protobuf container.</li>
+<li><strong>Component models</strong> are used to design behavior and interface of software components.</li>
+</ul>
+<p>The GSL compiler converts the models into executable language bindings for multiple programming languages. The ProtoBuf compiler generates messages classes. The generated component classes use these message classes to serialize and deserialize messages.</p>
+<p>Developers implementing new language bindings only need to develop a GSL template (a code-generator) for the target language and component classes containing language-specific details.</p>
+<h3>Model and Protocol Layering</h3>
+<p>The Machinetalk middleware separates the models into three layers.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/layering.svg.png"><img alt="layering-svg" class="aligncenter size-large wp-image-251" decoding="async" height="234" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/layering.svg-1024x375.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/layering.svg-1024x375.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/layering.svg-300x110.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/layering.svg-768x281.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/layering.svg-360x132.png 360w" width="640"/></a></p>
+<ul>
+<li>The <strong>Channel layer</strong> models the behavior of a single channel, such as, for example, the RPC or publish-subscribe channels.</li>
+<li>The <strong>Composition layer</strong> composes multiple channels to form a multi-channel protocol. This method allows combining the power of publish-subscribe and RPC in services.</li>
+<li>As the name suggests the models do not cover the <strong>Implementation layer</strong>. This layer enables the implementation of language dependent presentation of the message data.</li>
+</ul>
+<h3>Protocol Model</h3>
+<p>The protocol model has two main functions. First, it defines and documents all messages related to the protocol used by a Machinetalk channel or component composed of multiple channels. Moreover, it also clearly defines the relation between the structure of Protobuf messages and Machinetalk messages.</p>
+<h4>Protobuf as API</h4>
+<p>Protobuf is a great serialization technology. Unfortunately, it lacks a few things to work as API description for Machinetalk services.</p>
+<p>First, Protobuf itself provides an Interface Description Language (IDL) for describing messages. However, it does not include tools to describe the relation between messages.</p>
+<p>Secondly, Machinetalk uses a single top-level container messages and sub-messages for each protocol. The reasons behind this decision have been described earlier. However, this leads to the problem that a single message description is not enough to describe the API of a Machinetalk.</p>
+<h4>Example</h4>
+<p>An example is worth a thousand words:</p>
+<pre><code class="xml">&lt;data name="command"&gt;
+    &lt;field name="ticket" requirement="MAY" /&gt;
+    &lt;response name="emccmd executed" /&gt;
+    &lt;response name="emccmd completed" /&gt;
+    &lt;response name="error" /&gt;
+&lt;/data&gt;
+
+&lt;message name= "emc task plan run" inherit="command"&gt;
+    Run the task planner from the specified line number.
+    &lt;field name="emc_command_params" message="EmcCommandParameters" requirement="MUST"&gt;
+        &lt;field name="line number" requirement="MUST" /&gt;
+    &lt;/field&gt;
+    &lt;field name="interp_name" requirement="MUST" /&gt;
+&lt;/message&gt;
+
+&lt;system name="RPC"&gt;
+    Description of RPC components.
+    &lt;include filename="rpc_client.xml" /&gt;
+    &lt;include filename="rpc_service.xml" /&gt;
+&lt;/system&gt;
+</code></pre>
+<p>The model contains the description for all messages used in a system (combination of client and server / publisher and subscriber). Based on this model the code generator produces the <a href="https://github.com/machinekoder/machinetalk-doc/blob/master/machinetalk/rpcprotocol.md">protocol documentation</a>.</p>
+<h3>Component Model</h3>
+<p>The component model describes the component state machines, channels, sockets, and timers.</p>
+<p>The state machines are defined in the <a href="https://www.w3.org/TR/scxml/">SCXML format</a>, a W3C standard for defining state machines. My favorite editor for editing these charts Qt Creator (&gt;= 4.2), but you can also find free and open source tools from other vendors to edit the files graphically. Alternatively, you can also use as a simple text editor to modify the XML source tree.</p>
+<p>I don't want to go to much into details about SCXML. Instead please take a look the following statechart generated by the Machinetalk dot-file generator:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/subscribe.svg.png"><img alt="subscribe-svg" class="aligncenter size-large wp-image-252" decoding="async" height="206" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/subscribe.svg-1024x330.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/subscribe.svg-1024x330.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/subscribe.svg-300x97.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/subscribe.svg-768x248.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/subscribe.svg-360x116.png 360w" width="640"/></a></p>
+<p>The transitions and actions in the statechart have special meaning. Events can be triggered by incoming and outgoing messages, timers, and triggers and socket state changes.</p>
+<p>Actions send messages, start and stop channels, start, stop and reset timers and trigger custom slots.</p>
+<pre><code class="xml">&lt;trigger name = "start"&gt;
+    &lt;event name = "connect" when = "down"/&gt;
+&lt;/trigger&gt;
+
+&lt;slot name="set connected" /&gt;
+&lt;slot name="clear connected" /&gt;
+</code></pre>
+<p>Another core element of the middleware components is the timer. A typical use case of timers in middleware components is sending and verifying period heartbeat messages.</p>
+<pre><code class="xml">&lt;timer
+    name = "heartbeat"
+    interval = "2500"
+    liveness = "2" &gt;
+    For monitoring if the connection is alive.
+    &lt;tick&gt;
+        &lt;event name = "heartbeat tick" when = "up" /&gt;
+        &lt;event name = "heartbeat tick" when = "trying" /&gt;
+    &lt;/tick&gt;
+    &lt;timeout&gt;
+        &lt;event name = "heartbeat timeout" when = "up" /&gt;
+        &lt;event name = "heartbeat timeout" when = "trying" /&gt;
+    &lt;/timeout&gt;
+&lt;/timer&gt;
+</code></pre>
+<p>At the core of the component model are the socket and channel definition. If a socket definition refers to a class this means we are working on a composition layer component reusing a channel layer component.</p>
+<p>In addition to the events triggered by state changes, each socket contains definitions for incoming and outgoing messages. The <code>public</code> attribute defines the visibility of the message interface in the resulting software class.</p>
+<pre><code class="xml">&lt;socket name="command" class="RPC Client" module="Machinetal2
+    The command channel is used to issue commands to mklaunc3
+    &lt;state name="trying"&gt;
+        &lt;event name="command trying" when="up" /&gt;
+    &lt;/state&gt;
+    &lt;state name="up"&gt;
+        &lt;event name="command up" when="trying" /&gt;
+    &lt;/state&gt;
+
+    &lt;outgoing name="emc task abort" public="true" /&gt;
+    &lt;incoming name="*" /&gt;
+        &lt;event name = "any msg sent" when = "up" /&gt;
+        &lt;event name = "any msg sent" when = "trying" /&gt;
+    &lt;/incoming&gt;
+    &lt;incoming name="error" public="true"&gt;
+        &lt;note /&gt;
+    &lt;/incoming&gt;
+&lt;/socket&gt;
+</code></pre>
+<p>Please also note the use of the special tag <code>note</code>. This tag copies the content of a <code>note</code> message to the error string. I tried to avoid these implementation specific tags as much as possible.</p>
+<h2>Code Generators</h2>
+<p>Besides the models, the code generators are the second most important part of <a href="https://github.com/machinekoder/machinetalk-gsl/">Machinetalk GSL</a>.</p>
+<p>The fundamental idea behind Machinetalk GSL is that for a new language binding one only needs to write a new code generator. The complexity of the code generator is far smaller than to write a complete language binding in any programming language.</p>
+<p>For the core Machinetalk services I measured a code generation ratio (ratio between LOC of the code generator to the generated code) of 6 for Python and 10 for C++. This value increases with any additional Machinetalk service.</p>
+<p>But before I talk too much about the benefits of code generation, let's take a look at how to implement a new language binding.</p>
+<p>To implement a new Machinetalk binding you need to fulfill the following requirements:</p>
+<ul>
+<li><strong>FSM implementation</strong>: required for the component state machines</li>
+<li><strong>Concurrency</strong>: Machinetalk uses an asynchronous API. Therefore we need some of a concurrency support such as an event loop of multi-threading.</li>
+<li><strong>Timers</strong>: Timers are required for heartbeat messages.</li>
+<li><strong>Service Discovery</strong>: such as mDNS/DNS-SD</li>
+</ul>
+<h3>Implementation Process</h3>
+<p>To implement a new language binding using Machinetalk GSL, I recommend the following process:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/implementation_process.svg.png"><img alt="implementation_process-svg" class="aligncenter size-large wp-image-250" decoding="async" height="106" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-5-code-generation/implementation_process.svg-1024x169.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/implementation_process.svg-1024x169.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/implementation_process.svg-300x50.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/implementation_process.svg-768x127.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/implementation_process.svg-360x60.png 360w" width="640"/></a></p>
+<ul>
+<li>First of all, research the minimum requirements in your target programming language and framework.
+</li>
+<li>
+<p>Next, create a small proof of concept implementation. This step will help you writing the code generator.</p>
+</li>
+<li>
+<p>As the third step, generalize the proof of concept to implement the code generator. The existing implementations will help you.</p>
+</li>
+<li>
+<p>When you completed the code generator, continue by implementing the implementation layer components using the newly generated language bindings.</p>
+</li>
+</ul>
+<h3>Already implemented Code Generators</h3>
+<p>During the last year, I have continuously added code generators to Machinetalk GSL. Currently, the project contains code generators for the following programming languages, frameworks, and tools:</p>
+<ul>
+<li><strong>Qt/C++</strong>: used in <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp</a></li>
+<li><strong>Python</strong>: for <a href="https://github.com/machinekit/pymachinetalk">pymachinetalk</a>, not yet integrated</li>
+<li><strong>Node.js</strong>: not used so far</li>
+<li><strong>JavaScript (Browser)</strong>: used in <a href="https://github.com/machinekoder/webvcp">WebVCP</a></li>
+<li><strong>Markdown + Graphviz Dot</strong>: used in <a href="https://github.com/machinekoder/machinetalk-doc">Machinetalk-Doc</a></li>
+<li><strong>UPPAAL</strong>: used for formal verification of the middleware models</li>
+</ul>
+<h2>Conclusion</h2>
+<p>In this blog post, we have learned about code generators for the Machinetalk language bindings. We used the GSL language and tool to write the code generators and created XML models.</p>
+<p>If you want to learn more about Machinetalk, GSL, and code generation I recommend you to take a look at the <a href="https://github.com/machinekoder/machinetalk-gsl">machinetalk-gsl GitHub repository</a>.</p>
+<p>Even if you are not going to work on Machinetalk GSL, I still can recommend taking a closer look at MOP to add it to your toolbox.</p>
+<p>The end of this article also brings me to the end of the <em>Machinetalk explained</em> series. I hope you have enjoyed reading the articles and learned more about the Machinetalk middleware.</p>
+<p>Please send me feedback, ideas, and recommendations.</p>
+<p>Your<br/>
+Machine Koder</p>

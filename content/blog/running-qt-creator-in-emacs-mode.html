@@ -1,0 +1,31 @@
+<!--
+{
+  "title": "Running Qt Creator in emacs-mode",
+  "date": "2017-03-27T20:38:40",
+  "slug": "running-qt-creator-in-emacs-mode",
+  "original_url": "https://machinekoder.com/running-qt-creator-in-emacs-mode/",
+  "featured_image": "/static/blog_images/running-qt-creator-in-emacs-mode/qtc-emacs-mode.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">2</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, you will learn how to run <a href="https://www.qt.io/ide/">Qt Creator</a> in emacs-mode or in layman terms how to configure <a href="https://www.gnu.org/software/emacs/">GNU Emacs</a> keybindings in Qt Creator.</p>
+<h2>Why I write this blog post</h2>
+<p>This mini-tutorial is a note to my future self, searching how to configure Qt Creator to behave like Emacs all over the internet after another system reset.</p>
+<p>At the same time, it might serve useful for anyone else looking for the same thing on the web.</p>
+<p>Now you might ask why I want to run Qt Creator in Emacs mode anyways. My answer is quite simple: Qt Creator is an excellent IDE, but I like Emacs as text editor better. Since I don't want to switch between different key configurations all the time, it makes sense to configure Qt Creator to behave like Emacs.</p>
+<p>Well, and after getting used to the Emacs Ctrl-Meta-Key fu, it kinda starts to feel natural navigate with <code>Ctrl-n,p,f,b</code> and to switch between frames with <code>Ctrl-x-o</code>.</p>
+<h2>Activating the emacs-mode</h2>
+<p>To activate the emacs-mode in Qt Creator is simple with a recent version of Qt Creator which also comes with the Qt SDK.</p>
+<p>The <em>EmacsKeys</em> plugin by <em>nsf</em> provides the basis for the Emacs keybindings in Qt Creator. To activate it just open the <em>About Plugins...</em> window via the menu <code>Help &gt; About Plugins...</code>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017.png"><img alt="" class="aligncenter size-large wp-image-285" decoding="async" height="476" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/running-qt-creator-in-emacs-mode/Installed-Plugins_017-1024x761.png" srcset="https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017-1024x761.png 1024w, https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017-300x223.png 300w, https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017-768x571.png 768w, https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017-360x267.png 360w, https://machinekoder.com/wp-content/uploads/2017/03/Installed-Plugins_017.png 1260w" width="640"/></a></p>
+<p>Then you need to add the checkmark next to the plugin in the <em>Installed Plugins</em> window. After restart Qt Creator you are ready to configure the Emacs keybindings.</p>
+<p>If you have thought that you can use the Emacs key combinations right after activating the plugin, then you have made the same mistake as me after first activating the plugin.</p>
+<p>The <em>EmacsKeys</em> plugin provides new command for Qt Creator so it can be configured to behave like Emacs. However, it does not touch the keyboard shortcuts at all.</p>
+<p>Luckily you can configure the Qt Creator keyboard shortcuts quite easily via the settings menu <code>Tools &gt; Options...</code> in <code>Environment &gt; Keyboard</code>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2017/03/Options_018.png"><img alt="" class="aligncenter size-large wp-image-286" decoding="async" height="424" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/running-qt-creator-in-emacs-mode/Options_018-1024x678.png" srcset="https://machinekoder.com/wp-content/uploads/2017/03/Options_018-1024x678.png 1024w, https://machinekoder.com/wp-content/uploads/2017/03/Options_018-300x199.png 300w, https://machinekoder.com/wp-content/uploads/2017/03/Options_018-768x509.png 768w, https://machinekoder.com/wp-content/uploads/2017/03/Options_018-360x238.png 360w, https://machinekoder.com/wp-content/uploads/2017/03/Options_018.png 1960w" width="640"/></a></p>
+<p>Setting all the Qt Creator Command to match a keybinding for something similar in Emacs requires some handwork. To save you some time configuring the keybindings all by yourself I uploaded a sane configuration to <a href="https://gist.github.com/machinekoder/86402842b6287ba634fef045aa3db7e0"><strong>GitHub Gist: Emacs.kms</strong></a>.</p>
+<p>Import the file and voila - you will be running Qt Creator in emacs-mode.</p>
+<h2>Conclusion</h2>
+<p>Configuring Qt Creator to work in emacs-mode is easy if you know how to do it and worth the effort. Now I can enjoy an almost mouse-free Qt Creator experience, especially useful when traveling.</p>
+<p>I hope you have enjoyed reading this blog article and I would very much appreciate any feedback and comments.</p>
+<p>Your<br>
+Machine Koder</br></p>

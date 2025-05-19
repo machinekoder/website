@@ -1,0 +1,163 @@
+<!--
+{
+  "title": "Machinekit with Debian Stretch on the BeagleBone Black",
+  "date": "2017-12-05T20:50:04",
+  "slug": "machinekit-debian-stretch-beaglebone-black",
+  "original_url": "https://machinekoder.com/machinekit-debian-stretch-beaglebone-black/",
+  "featured_image": "/static/blog_images/machinekit-debian-stretch-beaglebone-black/machinekit-debian-stretch.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">4</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This is a quick and easy guide to get from an <a href="https://elinux.org/Beagleboard:BeagleBoneBlack_Debian">RCN Debian Linux image</a> for the BeagleBone (Black) to a working Machinekit installation.</p>
+<p>At the time of writing this blog post, there is no ready to use image available. However, in the future, there might be a ready to use image with everything set-up and ready. So please check the page <a href="https://elinux.org/Beagleboard:BeagleBoneBlack_Debian#BBW.2FBBB_.28All_Revs.29_Machinekit">here</a> before you start.</p>
+<p>If you eager to start without following the steps (although I recommend you do so) you can download the resulting image here: <a href="https://drive.google.com/open?id=15TyqoZ6wlDoAa6KV_k54lcijVtjAR2X2">BBB Machinekit Image with Debian Stretch</a></p>
+<h2>Download and Flash Debian BBB image</h2>
+<p>First of all, start by downloading the latest Stretch console image: <a href="https://elinux.org/Beagleboard:BeagleBoneBlack_Debian#Stretch_Snapshot_console">Console image</a>.</p>
+<p>Next, flash to a micro-SD card. I recommend using <a href="https://etcher.io/">Etcher</a> for the job.</p>
+<h2>Flash the image to BBB eMMC</h2>
+<p>Now it's time to flash the files from the micro-SD card to the eMMC of the BBB.</p>
+<p>To auto-flash the image when inserting the SD card into your BBB you can uncomment the last line in <code>/boot/uEnv.txt</code> on the rootfs.</p>
+<p>In case you have an older BBB or you don't want to modify the <code>uEnv.txt</code>, you will need to trigger flashing manually by holding the user button during boot until the running lights appear.</p>
+<h2>Connecting via SSH</h2>
+<p>For the next steps, we will use SSH to connect to the BBB.</p>
+<p>Under Linux or Mac OS X just use any terminal application.</p>
+<p>If you are using Windows, please use <a href="http://www.putty.org/">PuTTY</a>.</p>
+<p><strong>Note:</strong> The BBB creates two network interfaces when connected. One with IP address <code>192.168.7.2</code> and another one with <code>192.168.6.2</code>. In this guide I will refer just to <code>192.168.7.2</code>, but if you are experiencing any problems feel free to use the other.</p>
+<h2>Log in and create the machinekit user</h2>
+<p>Following, we add a <em>machinekit</em> user and then remove the default <em>debian</em> user.</p>
+<p>Log in via SSH with the username <code>debian</code> and password <code>temppwd</code>.</p>
+<pre><code class="bash">ssh debian@192.168.7.2
+</code></pre>
+<p>Please verify that the BBB has booted the correct Linux/image version:</p>
+<pre><code class="bash">uname -a
+cat /etc/dogtag
+</code></pre>
+<p>You should see the Linux kernel version and the image creation date as stated where you download the BBB images files.</p>
+<p>Next, we need to execute the following steps:</p>
+<ol>
+<li>create the machinekit user</li>
+<li>remove the sudo password</li>
+<li>change the root password</li>
+</ol>
+<pre><code class="bash">sudo su
+adduser machinekit
+</code></pre>
+<p>Use the password <code>machinekit</code> or anything else (dont' forget it).</p>
+<pre><code class="bash">usermod -aG  sudo,kmem,netdev,video machinekit
+echo -e "# No sudo password for machinekit user\nmachinekit ALL=(ALL) NOPASSWD: ALL" &gt; /etc/sudoers.d/90-machinekit
+exit
+</code></pre>
+<p>Then log out from the SSH shell with <code>exit</code>.</p>
+<p>Log in again to the BBB with the username <code>machinekit</code> and password <code>machinekit</code> (I hope you didn't forget it).</p>
+<pre><code class="bash">sudo su
+deluser debian
+rm -rf /home/debian
+exit
+</code></pre>
+<p>Now we are back at the machinekit user shell.</p>
+<h2>Install the basics</h2>
+<p>Subsequent, I recommend installing the following packages. Feel free to add or remove packages as you need.</p>
+<pre><code class="bash">sudo apt update
+sudo apt upgrade
+sudo apt install -y avahi-daemon network-manager nano git usbutils dirmngr locales firmware-misc-nonfree \
+    libnotify-bin iw dnsmasq apt-offline zip unzip \
+    libprotobuf-c0-dev protobuf-c-compiler libjpeg-dev python-smbus make python-setuptools python-dev gcc python-zmq libzmq3-dev \
+    libzmq3-dev libprotobuf-dev
+</code></pre>
+<p>The next step ensures that your locale is configured correctly. I choose en_US.UTF-8 for my system.</p>
+<pre><code>sudo dpkg-reconfigure locales
+</code></pre>
+<h2>Install the RT Kernel</h2>
+<p>Now it's time to install the PREEMPT_RT kernel on our system.</p>
+<p>For this, we can use the prepared scripts.</p>
+<pre><code class="bash">cd /opt/scripts/tools/
+sudo su
+git pull
+./update_kernel.sh --ti-rt-channel --lts-4_4
+</code></pre>
+<p>Once the installation is complete, reboot the system and run the following command to install additional firmware packages.</p>
+<pre><code class="bash">sudo apt install linux-firmware-image-`uname -r`
+</code></pre>
+<h2>Setup uEnv.txt</h2>
+<p>Succeeding, we need to disable all universal device tree overlay we don't need. In my case, that's the HDMI (video and audio) and the wireless cape.</p>
+<p>For this purpose, we open the <code>/boot/uEnv.txt</code> in the text editor of your choice.</p>
+<pre><code class="bash">sudo nano /boot/uEnv.txt
+</code></pre>
+<p>And change the following lines.</p>
+<pre><code>###Disable auto loading of virtual capes (emmc/video/wireless/adc)
+#disable_uboot_overlay_emmc=1
+disable_uboot_overlay_video=1
+disable_uboot_overlay_audio=1
+disable_uboot_overlay_wireless=1
+#disable_uboot_overlay_adc=1
+</code></pre>
+<h2>Improve boot performance</h2>
+<p>You don't need to follow the next steps if you are happy with the startup performance of the BBB as is.</p>
+<p>However, I found it useful to do the following optimizations since I noticed slower boots compared to the Debian Wheezy images.</p>
+<p>First, disable the wait-online Systemd service.</p>
+<pre><code class="bash">sudo systemctl disable systemd-networkd-wait-online.service
+</code></pre>
+<p>Then, disable the <code>eth0</code> interface and enable network-manager instead.</p>
+<pre><code class="bash">sudo nano /etc/network/interfaces
+# allow-hotplug eth0
+</code></pre>
+<pre><code class="bash">sudo nmcli con add type ethernet con-name dhcp-ethernet ifname eth0
+</code></pre>
+<p>Moreover, disable (in my opinion) for an embedded system useless services.</p>
+<pre><code class="bash">sudo systemctl disable ModemManager.service
+sudo systemctl disable debug-shell.service
+sudo systemctl disable pppd-dns.service
+</code></pre>
+<p>Since I don't use the graphical environment of the BBB, I also disable the graphical Systemd target.</p>
+<p>You may have noticed that we started from the console image, so this shouldn't make any difference anyway.</p>
+<pre><code class="bash">sudo systemctl set-default multi-user.target
+</code></pre>
+<h2>Install Machinekit</h2>
+<p>Now, that we have everything set up and ready it is time to install <a href="https://machinekit.io">Machinekit</a>.</p>
+<p>I copied the following commands from the official <a href="http://www.machinekit.io/docs/getting-started/getting-started-platform/">Machinekit docs</a>. In case you encounter problems, make sure to check for updates there.</p>
+<p>First, set up the official Machinekit repository:</p>
+<pre><code class="bash">sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 43DDF224
+sudo sh -c \
+  "echo 'deb http://deb.machinekit.io/debian stretch main' &gt; \
+  /etc/apt/sources.list.d/machinekit.list"
+sudo apt-get update
+</code></pre>
+<p>Then install the Machinekit packages with the following command:</p>
+<pre><code class="bash">sudo apt install machinekit-rt-preempt
+</code></pre>
+<h2>Test-drive Machinekit</h2>
+<p>To verify everything is set-up and ready you can run the following command:</p>
+<pre><code class="bash">realtime start
+halcmd show pin
+</code></pre>
+<p>You should see that the HAL configuration is running and empty.</p>
+<p>Stop it again by running:</p>
+<pre><code class="bash">realtime stop
+</code></pre>
+<p>If you want something quick and actionable, clone and run the <a href="https://github.com/qtquickvcp/anddemo">anddemo</a>.</p>
+<pre><code class="bash">cd
+mkdir -p repos
+cd repos
+git clone https://github.com/qtquickvcp/anddemo.git
+cd anddemo
+./run.py
+</code></pre>
+<h2>Additional step: Setup mklauncher</h2>
+<p>You may want to try out the <a href="https://github.com/qtquickvcp/qtquickvcp">QtQuickVcp</a> remote user interfaces.</p>
+<p>To launch remote UIs from the comfort of your desktop computer you need to install and start the <code>mklauncher</code> as a service.</p>
+<p>The quickest way to achieve this is by using the <code>register.py</code> script.</p>
+<pre><code class="bash">wget https://gist.githubusercontent.com/machinekoder/3eaa42f79f7a19e2244a/raw/c1a98793bb15be49f04bef2fceac09020a978058/register.py
+sudo python register.py
+</code></pre>
+<p>Follow the steps and you should be ready to go.</p>
+<p>Then, download the <a href="https://github.com/qtquickvcp/QtQuickVcp#download">MachinekitClient</a> and start playing.</p>
+<h2>Flash the eMMC contents back to the micro-SD card</h2>
+<p>It's always useful to know how to create a new micro-SD card image from eMMC contents on the BBB.</p>
+<p>Luckily, RCN created a script to make this super easy.</p>
+<p>Insert a micro-SD into your BBB and run:</p>
+<pre><code class="bash">sudo /opt/scripts/tools/eMMC/beaglebone-black-make-microSD-flasher-from-eMMC.sh
+</code></pre>
+<h2>Conclusion</h2>
+<p>In this quick tutorial, you have learned how to create your own Machinekit image from a pristine RCN Debian image for the BeagleBone.</p>
+<p>I hope you found this tutorial useful and if so please share it with your friends and co-workers.</p>
+<p>Your<br>
+Machine Koder</br></p>

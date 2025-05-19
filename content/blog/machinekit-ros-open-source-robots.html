@@ -1,0 +1,135 @@
+<!--
+{
+  "title": "Combining Machinekit and ROS to build Open Source Robots",
+  "date": "2018-07-02T10:00:20",
+  "slug": "machinekit-ros-open-source-robots",
+  "original_url": "https://machinekoder.com/machinekit-ros-open-source-robots/",
+  "featured_image": "/static/blog_images/machinekit-ros-open-source-robots/machinekit_ros.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">11</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>When you read this article you probably have heard about either <a href="http://www.ros.org/">ROS</a> or <a href="https://machinekit.io">Machinekit</a>, but very likely not thought about combining both to build fully open source robots.</p>
+<p>Machinekit is an open source motion control software project. The aim of the project is to simplify the creation of motion control systems, be it CNCs, special machines or robots.</p>
+<p>ROS, the robot operation system, is an open source software project that aims to make developing robots easier. Besides being a networking middleware, ROS comes with a huge amount of tools and packages provided by the community. In short, ROS is the de-facto standard for open source robotics.</p>
+<p>The connecting point between ROS and Machinekit is where the software meets the hardware. ROS is an excellent tool for creating complex<br>
+high-level robotic applications, however, it lacks a standard interface to low-level hardware. I argue that this might always be the case since it's simply not the aim of the project to provide these capabilities.</br></p>
+<h2>Machinekit</h2>
+<p>This is where Machinekit comes into play. Hidden under the covers of the Machinekit software project is a true gem, the HAL module.</p>
+<p>HAL is short for Hardware Abstraction Layer, which is, in my opinion, a big understatement since it's much more than just hardware abstraction.</p>
+<p>HAL provides a clear and concise structure for creating real-time software components and hardware drivers. The most amazing thing about this concept is that Machinekit comes with an abstraction to the underlying real-time API called RTAPI. This means that you can run the components on a development machine without RT kernel or on the target system with PREEMPT_RT or Xenomai RT kernels without requiring any modifications.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg.png"><img alt="" class="aligncenter size-large wp-image-234" decoding="async" height="327" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/hal_overview.svg-1024x523.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-1024x523.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-300x153.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-768x392.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-360x184.png 360w" width="640"/></a></p>
+<p>Additionally, HAL provides a configuration layer that enables you to interconnect the software components with each other. The configuration<br/>
+layer features pins, signals, threads, functions and, components. In short, HAL components can provide functions, which are called by<br/>
+threads, threads are executed periodically, signals connect pins of HAL components which each other. In a more abstract way, it can be also be thought of like an electrical circuit.</p>
+<h2>ROS</h2>
+<p>You may wonder how ROS users previously controlled robot hardware. From my research, I found that there are following options to control your robots motors, sensors, and other electronics via ROS.</p>
+<h3>ROS node and OS drivers</h3>
+<p>This is probably the most convenient form of controlling hardware with ROS. If device drivers for your OS of choice already exist for your hardware, it's just a matter of writing a Python or C++ ROS node to use the OS APIs to access the driver.</p>
+<div class="wp-caption aligncenter" id="attachment_462" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/1_2.png"><img alt="ROS Node and OS Drivers" aria-describedby="caption-attachment-462" class="size-large wp-image-462" decoding="async" height="334" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/1_2-1024x534.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/1_2-1024x534.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/1_2-300x156.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/1_2-768x401.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/1_2-360x188.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/1_2.png 1068w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-462">ROS Node and OS Drivers</p></div>
+<p>The big downside of this approach is that this requires either generic or special purpose drivers for your hardware. For custom electronics, this could mean writing a device driver for the OS, for Linux this means digging deep into system and kernel development.</p>
+<p>On common hardware platforms such as the Raspberry Pi or the BeagleBone Black, you are often even able to access GPIO pins or device peripherals such as PWM generators via device tree drivers. Although, this approach is easy and allows scripting, be aware that this comes with major performance drawbacks, depending on the application and interface.</p>
+<p>Generally speaking, the closer you get to the hardware, the harder it is to implement the functionality on OS level. And this leads me to the next very common approach for interfacing hardware with ROS.</p>
+<ul>
+<li><a href="http://wiki.ros.org/joy">joy</a></li>
+<li><a href="https://github.com/chrisspen/rpi_gpio">rpi_gpio</a></li>
+</ul>
+<h3>rosserial and external hardware</h3>
+<p>Since it's difficult to implement functionality such as step generation for stepper motors or PID loops on a high-level operating system, it sounds like a good idea to outsource this function to external hardware. This may include microcontroller based platforms such as the <a href="https://www.arduino.cc/">Arduino</a> or <a href="https://www.mbed.com/en/">Mbed</a>.</p>
+<div class="wp-caption aligncenter" id="attachment_463" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/2_2.png"><img alt="rosserial" aria-describedby="caption-attachment-463" class="size-large wp-image-463" decoding="async" height="301" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/2_2-1024x482.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/2_2-1024x482.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/2_2-300x141.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/2_2-768x361.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/2_2-360x169.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/2_2.png 1216w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-463">rosserial</p></div>
+<p><a href="http://wiki.ros.org/rosserial">rosserial</a> is a protocol that serializes ROS messages into a binary format suitable for transfer over a serial interface. This can be for example a serial connection via USB, RS-232 or with the right hardware RS-485. Since we have serialized byte stream, we could send it over almost every protocol or interface that can handle generic data, including for example a ZigBee or a Bluetooth connection.</p>
+<p>The advantages of this approach include that that microcontroller hardware is extremely cheap and also approachable (e.g. Arduino).</p>
+<p>A huge downside of this approach is that microcontroller based platforms are usually less suitable for highly computation intensive<br/>
+tasks. This includes CV or kinematics for example. Of course, these tasks can be easily done on an embedded computer and result can be sent back to the microcontroller hardware. However, this comes with the big drawback of communication overheat and most importantly the introduction of unnecessary jitter. For motion control applications this could be the difference between a well-performing application or one with poor performance</p>
+<p>In some cases, the serial connection might also be a bottleneck. Size of packets sent over the serial connection is limited and most importantly we have an upper limit to baudrate of the connection.</p>
+<p>Additional drawbacks include that you require a computer and a microcontroller platform for the applications, which drives up the device and development cost.</p>
+<p>Examples:<br/>
+* <a href="https://github.com/asukiaaa/ros_sevenbot">ros_sevenbot</a></p>
+<h3>External motion controller / Black Boxes</h3>
+<p>As roboticists and a ROS developer, you don't care about how the low-level hardware interface is implemented. At least that's what manufacturers selling proprietary motion controller will tell you.</p>
+<div class="wp-caption aligncenter" id="attachment_464" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/3.png"><img alt="External Motion Controller" aria-describedby="caption-attachment-464" class="size-large wp-image-464" decoding="async" height="286" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/3-1024x457.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/3-1024x457.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/3-300x134.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/3-768x343.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/3-360x161.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/3.png 1484w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-464">External Motion Controller</p></div>
+<p>I call this the external motion controller approach of integrating ROS with its environment. In this scenario, the ROS integrator accesses<br/>
+the motion control hardware via high-level interfaces and commands. In some cases, manufacturers even offer ROS packages implementing common interfaces.</p>
+<p>All the low-level details of how to control the motors, PID loops and sometimes even kinematics are handled by the external black box. This black box could be PLC or a robot controller provided by the industrial robot manufacturer.</p>
+<p>Especially for professional applications, this setup is very attractive, since you don't need to deal with the integration of drivers, electronics and, interfaces between hardware and software.</p>
+<p>The drawbacks of this approach include a very high price, unsuitable for low-cost products, vendor lock-in, since every motion or robot controller works differently, high risks of discontinuing support, especially when you are dealing with a startup, and limited possibilities tuning the parameters and performance.</p>
+<p>This setup is probably the most common for ROS applications with industrial robots. Since you are mostly dealing with existing robot hardware that already features a robot motion controller.</p>
+<p>Examples:<br/>
+* <a href="https://github.com/ros-industrial/universal_robot/tree/kinetic-devel/ur_driver">UR Driver</a><br/>
+* <a href="https://github.com/ros-industrial/kuka_experimental">KUKA Experimental</a></p>
+<h3>ros_control</h3>
+<p><a href="http://wiki.ros.org/ros_control">ros_control</a> is a generic robot controller interface for ROS. It provides a common interface to drive<br/>
+a robot in terms of ROS topics and services. Moreover, it also aims to provide a streamlined hardware interface for ROS. This means if you want to write a new driver for your robot, the project provides <a href="https://github.com/PickNikRobotics/ros_control_boilerplate">some structure</a> to do so.</p>
+<div class="wp-caption aligncenter" id="attachment_465" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/4.png"><img alt="ros_control" aria-describedby="caption-attachment-465" class="size-large wp-image-465" decoding="async" height="311" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/4-1024x498.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/4-1024x498.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/4-300x146.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/4-768x373.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/4-360x175.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/4.png 1234w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-465">ros_control</p></div>
+<p>Using <em>ros_control</em> it's possible to abstract the underlying robot hardware. If you want to support two robot hardware systems for example, you could write two ros_controllers implementing the drivers for each robot.</p>
+<p>Besides providing a common interface to the robot hardware, it also provides support for transmission, enforcing joint limit and probably a lot more. Most importantly, the project is also real-time capable, which makes it suitable for high-performance (in terms of timing accuracy) systems.</p>
+<p>Examples:<br/>
+* <a href="https://github.com/davetcoleman/baxter_ssh">Baxter SSH</a></p>
+<h2>Why do we need yet another solution?</h2>
+<p>In the previous section, I explained the different approaches to interface hardware with ROS. Let's recapture really quick with a focus on controlling motors as the application.</p>
+<p>Option 1, interfacing with the hardware via a ROS node and the OS device drivers is a good option for common hardware such as joysticks for example. On some platforms, such as the Raspberry Pi, for example, it even might give us access to the device peripherals.</p>
+<p>In terms of controlling motors, the closest you will get to a reasonable solution is using the PWM peripherals of a single board<br/>
+computer. Using PWM, you can control <a href="https://hobbyking.com/en_us/radios-servos/servos.html?___store=en_us">RC servos</a>, but it won't help you controlling stepper motors to build closed-loop systems. In general, this option is most reasonable for educational and toy applications.</p>
+<p>Option 2, includes offloading the low-level motor control commands to external hardware such as Arduino via rosserial. On the Arduino, we can implement step generators, closed-loop control loops and almost anything we can dream of in terms of motor control.</p>
+<p>However, we have two potential downsides, which might relevant for your application or not. First of all, the Arduino and most other microcontroller platforms are less computationally powerful than their bigger counterparts. This can be a problem if your motion control application includes non-trivial kinematics for example.</p>
+<p>The other downside of outsourcing every bit of the motor control hardware leads to a bottleneck in the command pipeline. Everything depends on the how much data you can get through the serial connection. Moreover, oftentimes the used serial bus is USB or RS-232 which is very easy to disturb.</p>
+<p>Option 3, outsources everything to external motion control hardware. In comparison to the rosserial solution, the motion control hardware usually has a bigger understanding of the controlled environment, meaning we can work on a higher level with the black box. A robot motion controller, for example, might be able to handle commands such as a move to Cartesian position <em>x,y,z</em> with a velocity <em>v</em> and acceleration <em>a</em>.</p>
+<p>The advantage of such a setup is that we don't need to worry about the motion control part of the application. Moreover, the external motion control hardware might provide additional features such as motion planning, that might handy in some situations.</p>
+<p>The biggest downside of this scenario is the significant cost of such hardware and the potential danger of vendor lock-in. Moreover, the performance of the systems you can't control might be unsuitable for your application. E.g. some robot controllers allow a tight feedback loop of a few milliseconds, whereas others only operate on very high-level commands.</p>
+<p>Option 4, using ros_control, is, in my opinion, the most interesting setup. It separates the hardware and low-level motor control from the<br/>
+ROS application with a common interface, which allows you to break free of any kind of vendor lock-in. On the other hand, very few ready-to-use ros_controllers exist at the moment, so you might end up implementing your own controller.</p>
+<p>Moreover, the performance of the system really depends on how you implement the controller. For example, you could combine ros_control with Option 3, a motion control box or you could access hardware directly.</p>
+<p>So although ros_control provides a common interface to ROS, the hardware side still strongly depends on the implementation of the controller.</p>
+<p>So do we need another solution? I argue yes. It's still very complex and hard thing to interface motor control hardware in a standardized and performant way at the moment.</p>
+<p>Do we need a real-time system for good motion control? Well, not necessarily. In my opinion, the focus much too often on using a real-time system where none is necessary. However, the closer we get to the actual motor control hardware, the more interesting a real-time can be.</p>
+<p>Let's say we want to implement a PID loop for our closed-loop motor control with encoder feedback. In this case, if we don't calculate and update the control value at a very exact point in time, we end up with bad motion control performance.</p>
+<p>However, if the controlled hardware operates on a higher level, understands time and is synchronized with the control computer, then we don't necessarily need a real-time system to achieve good performance.</p>
+<p>This is where Machinekit comes into play.</p>
+<h2>Machinekit and ROS</h2>
+<p>Machinekit HAL is designed to provide a generic solution to build motion control systems. It was originally intended to be used to wire together the motion planning features of LinuxCNC with the hardware.</p>
+<p>Since homegrown CNC hardware can be very different, it was necessary to abstract, the way machine integrators configure control loops, hardware interface and, control logic.</p>
+<p>The Machinekit project extended the concepts of LinuxCNC even further to single board computer platforms such as the BeagleBone Black or the<br/>
+Raspberry Pi. This enables machine integrators to target both, a desktop PC with an external FPGA motion control card and also a BeagleBone with PRU-based controls independently.</p>
+<p>I argue the same is true for robot hardware. We use many different hardware platforms, motors types and all sorts of custom hardware to control for example grippers.</p>
+<p>This is exactly where Machinekit and ROS could work together.</p>
+<p>ROS is really good at providing a common platform for high-level robot software components. However, for the most part, it lacks a common infrastructure to interface with hardware.</p>
+<p>Machinekit, on the other hand, is really good for low-level motion control applications and it lacks the high-level applications.</p>
+<p>ROS is great in motion planning, computer vision, managing the state of a robot and many more things.</p>
+<p>Machinekit makes real-time motion control in hardware independent way a commodity.</p>
+<p>Combining Machinekit and ROS could be the start of a new era in open source robotics down to motion control and hardware.</p>
+<h2>Integrating Machinekit and ROS</h2>
+<p>Now that we have talked about why Machinekit and ROS would be a good fit, it's time to elaborate on how they could be integrated with each other.</p>
+<h3>ROS node interacting with HAL</h3>
+<p>The probably most approachable and easiest way to interface with Machinekit and ROS is to create a ROS node that uses the Machinekit API.</p>
+<div class="wp-caption aligncenter" id="attachment_466" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/5.png"><img alt="ROS Node and HAL" aria-describedby="caption-attachment-466" class="size-large wp-image-466" decoding="async" height="326" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/5-1024x522.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/5-1024x522.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/5-300x153.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/5-768x391.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/5-360x183.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/5.png 1123w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-466">ROS Node and HAL</p></div>
+<p>As the Machinekit environment executes completely independent of ROS it's even possible to implement real-time motion control applications inside Machinekit HAL and to send input data for example via a Python ROS node.</p>
+<p>This approach is excellent for simple applications, where you just want to control a motor position without timing for example.</p>
+<p>Examples:<br/>
+* <a href="https://github.com/luminize/ros_hello_machinekit/blob/master/scripts/pubsub-demo.py">JointState component in<br/>
+HAL</a><br/>
+* <a href="https://github.com/machinekit/machinekit/issues/689">Discussion in the Machinekit GitHub issue tracker</a></p>
+<h3>jplan, ring buffers and, trajectory playout</h3>
+<p>This option is more interesting for robots that require a movement over time. This would be for example an industrial robot arm or the actuators of a service robot.</p>
+<div class="wp-caption aligncenter" id="attachment_467" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/6.png"><img alt="ROS and jplan" aria-describedby="caption-attachment-467" class="size-large wp-image-467" decoding="async" height="336" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/6-1024x538.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/6-1024x538.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/6-300x158.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/6-768x404.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/6-360x189.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/6.png 1176w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-467">ROS and jplan</p></div>
+<p>Motion planners, such as <a href="https://moveit.ros.org/">MoveIt!</a> or <a href="http://wiki.ros.org/descartes">Descartes</a> play out a so-called<br/>
+trajectory. A trajectory is nothing else than a set of waypoints over time. Meaning that the actuator needs to move between the waypoints in the specified time. A timestamp specifies when the actuator should be in which position.</p>
+<p>In short, the playout system requires a way to interpolate between the target waypoints, moreover, it needs to be capable of some basic planning to reach the waypoints at the correct time.</p>
+<p>For this purpose, we almost certainly need a real-time system to execute the command. This makes Machinekit very suitable for this application.</p>
+<p>Machinekit comes with a component called <a href="https://github.com/machinekit/machinekit/tree/master/src/hal/jplanner">jplan</a>, short for joint planner. This component plays out commands from a HAL ringbuffer, this includes acceleration and velocity limits.</p>
+<p>Using this component one can build a playout for ROS <a href="http://docs.ros.org/lunar/api/trajectory_msgs/html/msg/JointTrajectory.html">JointTrajectories</a>. Create a ROS node, subscribe to JointTrajctory messages and feed the joint position commands into the HAL ringbuffer.</p>
+<p>Bas uses this method to control the <a href="https://www.youtube.com/watch?v=h_oO0OhFvQY">Matilda robot</a></p>
+<h3>ros_control</h3>
+<p><a href="http://wiki.ros.org/ros_control">ros_control</a> has been mentioned previously in the section discussing the different approaches to control hardware ROS features at the moment.</p>
+<div class="wp-caption aligncenter" id="attachment_468" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/7.png"><img alt="ros_control and HAL" aria-describedby="caption-attachment-468" class="size-large wp-image-468" decoding="async" height="330" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-open-source-robots/7-1024x528.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/7-1024x528.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/7-300x155.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/7-768x396.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/7-360x186.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/7.png 1265w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-468">ros_control and HAL</p></div>
+<p>As state earlier, ros_control is great, because it provides a standardized interface for robot controllers. However, one still needs to implement the controllers for each robot as there is no generic hardware abstraction.</p>
+<p>Therefore, it seems only logical to combine Machinekit with ros_control to create a standardized and generic hardware interface. In this case, a new controller would be created to write and read from HAL during each cycle.</p>
+<p>ros_control manages everything necessary to play out joint trajectories from ROS. Therefore, on the Machinekit side, we only need to connect the target joint positions and feedback values to the ros_control HAL component.</p>
+<p>This way, the Machinekit interface would be generic for all sorts of robot hardware. The only thing that needs to be changed is the HAL configuration.</p>
+<p>Since Machinekit comes with drivers for all sorts of different motion control hardware and platforms, this enables ROS integrators to design robot systems more quickly.</p>
+<p>This approach is currently tested in a private project. If everything goes as planned, efforts may be made to publish the results.</p>
+<h2>Conclusion</h2>
+<p>ROS lacks a standardized way to interface with hardware. Machinekit does provide a so-called hardware abstraction layer, that could be used to fill this gap.</p>
+<p>Several approaches for how to integrate Machinekit with ROS have been presented, whereas integration with ros_control looks like the most promising solution.</p>
+<p>In the future, attempts may be made to upstream any work on integration Machinekit with ROS.</p>
+<p>I hope I was able to spark some interest in Machinekit and ROS.</p>
+<p>If you have any questions or application ideas, feel free to reach out to me via the comments below or send me some private feedback.</p>
+<p>Your<br/>
+Machine Koder</p>

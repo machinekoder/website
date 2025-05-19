@@ -1,0 +1,87 @@
+<!--
+{
+  "title": "Web UIs for Machinekit",
+  "date": "2016-10-26T16:39:51",
+  "slug": "web-uis-for-machinekit",
+  "original_url": "https://machinekoder.com/web-uis-for-machinekit/",
+  "featured_image": "/static/blog_images/web-uis-for-machinekit/webvcp_screenshot.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">5</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, I present WebVCP - web-based user interfaces for Machinekit.</p>
+<h2>Reasons for web UIs over native UIs</h2>
+<p>I have dedicated a lot of my work in the last years ro <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp</a> which is a remote UI framework for Machinekit targeting desktop and mobile applications. So you may wonder why I even explored the possibilities of web UIs for Machinekit.</p>
+<p>Here are my top reasons for exploring web front-ends for human-machine interfaces.</p>
+<ul>
+<li><strong>Deployment:</strong> Deployment for web applications is evident. On the host you need to start a web server, on the client, you need a browser, done.</li>
+<li><strong>QtQuick and OpenGL:</strong> Although this problem will resolve in a future version of Qt, it is annoying to not beeing able to run QtQuickVcp on the BeagleBone and other Embedded Linux device due to lack of sufficient graphic drivers.</li>
+<li><strong>Rise in popularity:</strong> Web applications (not to confuse with web pages) are becoming more and more popular. The technology seems to mature and some applications such as <a href="http://draw.io">draw.io</a> can compete with native desktop software.</li>
+<li><strong>Ease of use:</strong> I don't think that web apps are more intuitive than their desktop counterparts. However, the browser-workflow has become natural for most people and entering a URL in a web browser is something most people understand without special instructions.</li>
+</ul>
+<p>I don't think that desktop and mobile applications will become obsolete shortly. However, I think that web applications are becoming healthy alternatives for the popular desktop front-end technologies.</p>
+<p>These reasons were enough for me to start learning JavaScript, <a href="https://nodejs.org/en/">Node.js</a>, <a href="http://expressjs.com/">Express</a>, <a href="https://angularjs.org/">AngularJS</a>, <a href="https://facebook.github.io/react/">React</a> and much more at <a href="https://www.codeschool.com/">Code School</a>.</p>
+<p>For me, this was an interesting lecture since I discovered that web technologies seem to evolve in a parallel universe to desktop front-end technologies.</p>
+<p>Some patterns are familiar, but most things work completely different to what I have worked with so far. If you are not already familiar with web development, stuff like <em>Redux</em> or <em>intermorphic design</em> can be very confusing.</p>
+<p>Luckily I stumbled upon <a href="http://qmlweb.github.io">QmlWeb</a> which brings QML, a declarative UI programming language, to the browser. That is perfect for me because I can solely focus on the backend and client-server communication.</p>
+<h2>QmlWeb</h2>
+<p><a href="http://qmlweb.github.io">QmlWeb</a> is an approach for creating web applications with <a href="https://en.wikipedia.org/wiki/QML">QML</a>. QML is a declarative programming language introduced by the Qt project to design highly custom user interfaces.</p>
+<p>QML works together with JavaScript as imperative language. Qt uses it's own JavaScript engine for parsing and running QML applications. So it seems only logical to use the JavaScript engine of a modern web browser to run QML applications.</p>
+<p>From a developer perspective, QML is very similar to <a href="https://www.tutorialspoint.com/angular2/angular2_hello_world.htm">AngularJS 2</a>. It uses components and property bindings, and the model-view approach is used to expose data models to the front-end.</p>
+<p>The huge advantage for me is that I have worked with QML and QtQuick, the QML standard library, since the introduction by Nokia.</p>
+<p>QmlWeb is far from complete. However, many of the design patterns and ideas from QtQuickVcp are easily portable to JavaScript. In fact, the goal is that QtQuickVcp and WebVCP applications even can share the same source code.</p>
+<h2>Machinetalk bindings for the browser</h2>
+<p>One particular thing that was holding me back so far is that there was no browser JavaScript binding for Machinetalk. However, I already started working on Node.js bindings earlier this year.</p>
+<p>In fact, implementing the Node.js bindings was easy, since ZeroMQ, Protobuf and mDNS/DNS-SD bindings are all available. But I learned quickly that server-side bindings do not help be building a real-time Machinekit web-app. Building the complete client-server communication from the ground up was not what I was looking for.</p>
+<p>So I decided that I need to learn more about web development before continuing with the project.</p>
+<p>In fact, the solution I came up with is pretty similar to Michael Haberlers Webtalk. Webtalk is an application that converts Protobuf messages to JSON and ZeroMQ sockets to Websockets. Service discovery happens on the server side.</p>
+<p>The WebVCP solution is very similar. However, instead of converting the messages to JSON I use Protobuf.js directly in the web browser. Moreover, I implemented the service discovery as REST API so that everything can be done from the client-side.</p>
+<p>Below is a diagram that shows the function principle of WebVCP:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1.png"><img alt="webvcp" class="alignnone size-full wp-image-167" decoding="async" height="1903" loading="lazy" sizes="(max-width: 2960px) 100vw, 2960px" src="/static/blog_images/web-uis-for-machinekit/webvcp-1.png" srcset="https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1.png 2960w, https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1-300x193.png 300w, https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1-768x494.png 768w, https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1-1024x658.png 1024w, https://machinekoder.com/wp-content/uploads/2016/10/webvcp-1-360x231.png 360w" width="2960"/></a></p>
+<p>The message serialization works end-to-end from service to client without decoding the messages.</p>
+<p>ZeroMQ provides internal capabilities For routing the messages to the correct destination. The combination of <code>XPUB</code> and <code>XSUB</code> sockets allows forwarding of subscription messages to the publisher. However, please note that this only works for bidirectional protocols such as <code>TCP</code>. When a client subscribes to a particular destination the broker establishes a connection to the request address, if a connection is already open.</p>
+<p>ZeroMQs <code>ROUTER-DEALER</code> pattern works similar. The <code>ROUTER</code> keeps track of the client connections and is, therefore able to route answers to message back to the sender. Note that we do not need to address clients directly from the service side, because the service is stateless.</p>
+<p>Implementing a network protocol in specific language means implementing state machine and the relation to incoming and outgoing messages. As part of my Master's thesis, I created code generators to solve this problem in a platform independent way. The project is called <a href="https://github.com/machinekoder/machinetalk-gsl">Machinetalk GSL</a>. Adding a new language or framework boils down to writing a new code generator.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/10/layering.png"><img alt="layering" class="alignnone size-full wp-image-162" decoding="async" height="803" loading="lazy" sizes="(max-width: 2200px) 100vw, 2200px" src="/static/blog_images/web-uis-for-machinekit/layering.png" srcset="https://machinekoder.com/wp-content/uploads/2016/10/layering.png 2200w, https://machinekoder.com/wp-content/uploads/2016/10/layering-300x110.png 300w, https://machinekoder.com/wp-content/uploads/2016/10/layering-768x280.png 768w, https://machinekoder.com/wp-content/uploads/2016/10/layering-1024x374.png 1024w, https://machinekoder.com/wp-content/uploads/2016/10/layering-360x131.png 360w" width="2200"/></a></p>
+<p>Thanks to this approach it only required me to implement the <em>Implementation Layer</em> components. For implementing the WebVCP project this meant creating QmlWeb modules.</p>
+<h2>Example web app</h2>
+<p>I decided to reuse the Machinekit <a href="https://github.com/machinekoder/anddemo">anddemo</a> for the sample application. For the user interface, this means implementing two buttons and one LED-like indicator component.</p>
+<p>Here is a video showing the functionality and syncing with QtQuickVcp and the HAL:</p>
+<div class="x-resp-embed x-is-video x-is-youtube"><iframe allowfullscreen="" frameborder="0" gesture="media" height="113" loading="lazy" src="https://www.youtube.com/embed/hgIlPHOF-Ys?feature=oembed" width="200"></iframe></div>
+<p>Although the example app is very simple it shows the syncing functionality of HAL remote. The UI itself does not contain any networking code. The QmlWeb HalRemote module does the service discovery, serialization, and message handling.</p>
+<p>Long story short, this means creating reactive human-machine interfaces in the web browser without requiring deep knowledge of web development and network protocols.</p>
+<p>In layman terms, this enables everyone with a text editor and a web browser to build reactive web apps for controlling machines.</p>
+<p>The source code of WebVCP and can be found at <a href="https://github.com/machinekoder/webvcp">GitHub</a>.</p>
+<h2>Try it out</h2>
+<p>If can't wait to test it yourself, here are the install instructions:</p>
+<p>First of all, you need a working Machinekit installation. I will not explain how to install Machinekit here. Please take a look at the <a href="http://machinekit.io">Machinekit documentation</a> for more information.</p>
+<p>Additionally, you need a recent version of Node.js running on your Linux machine. On Debian you can use the following install commands:</p>
+<pre><code class="bash">curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+sudo apt-get install -y nodejs
+</code></pre>
+<p>Next you need to clone and start the anddemo example:</p>
+<pre><code class="bash">git clone https://github.com/machinekoder/anddemo.git
+cd anddemo
+./run.py &amp;
+cd ..
+</code></pre>
+<p>At the moment, you also need to download and build my development branch of QmlWeb:</p>
+<pre><code class="bash">git clone https://github.com/machinekoder/qmlweb.git
+cd qmlweb
+git checkout origin/webvcp
+npm install
+npm run build
+cd ..
+</code></pre>
+<p>Next, you need to download and run WebVcp:</p>
+<pre><code class="bash">git clone https://github.com/machinekoder/webvcp.git
+cd webvcp
+npm install
+node index.js
+</code></pre>
+<p>Now it is time to open your web-browser enter the following URL: <code>localhost:3000</code>. If all went well you should be able to see the anddemo web app.</p>
+<h2>Conclusion</h2>
+<p>The QmlWeb framework proofs useful for creating machine VCPs. Although QmlWeb is far from complete, it is already possible to create nice looking and reactive web applications with this technology.</p>
+<p>In the long term, I hope this technology will lower the entry barrier to create web-based user interfaces for machines. Which hopefully will lead to better and graphically more powerful HMIs than what is currently the industry standard.</p>
+<p>For me, this project serves anchor point into creating web applications. Although I have started my programming career with HTML4 and PHP, the world of web development got out of my control in the last years. Thanks to QmlWeb, web apps finally feel doable again.</p>
+<p>I hope you have enjoyed reading this article and I'm looking forward to your feedback and ideas.</p>
+<p>Your<br>
+Machine Koder</br></p>

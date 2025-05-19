@@ -1,0 +1,87 @@
+<!--
+{
+  "title": "Speed Up Your GUI Development with Python Qt and QML Live Coding",
+  "date": "2018-06-10T16:14:38",
+  "slug": "speed-up-your-gui-development-with-python-qt-and-qml-live-coding",
+  "original_url": "https://machinekoder.com/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/",
+  "featured_image": "/static/blog_images/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/live-coding-workflow_logo.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">4</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>Are you still hitting the <em>Run</em> button every time you want to verify a GUI element in your Python Qt and QML application looks as you expected?</p>
+<p>Or are you relying on your working memory to imagine the changes in your mind?</p>
+<p>Both approaches work, but you are wasting a lot of time and energy, which you could spend more productive on coding.</p>
+<p>In this article, you will learn about an approach called <em>live coding</em> which I frequently use during GUI development with Qt QML.</p>
+<p>The idea is to <strong>shorten feedback loops</strong> by automatically reloading the GUI whenever you change the source code.</p>
+<p>Additionally, we combine the automatic reloading with prototype or playground UIs, where you can work on <strong>parts of the UI</strong> in an isolated manner.</p>
+<p>I see live coding as the GUI counterpart to test-driven development for <em>normal</em> source code. It's all about more consistent development speed thanks to shorter feedback loops. In fact, TDD and live-coding are a great combination when working with Python Qt and QML.</p>
+<p>Live coding for QML applications is nothing I have invented. There is also the now official <a href="https://doc.qt.io/QtQmlLive/usage.html">QmlLive Bench</a>. However, so far it only supports Qt/C++ applications.</p>
+<p>Moreover, I noticed that for bigger projects you need to write your own live coding environment anyway. For example, I also added live coding to <a href="https://github.com/machinekit/QtQuickVcp">QtQuickVcp</a> as demonstrated in this <a href="https://www.youtube.com/watch?v=B5rYhq06wio">video</a>.</p>
+<h2>Components</h2>
+<p>The live coding environment is fairly simple. In fact, it's so simple that you can easily implement it for each of your projects. It consists of the following software components:</p>
+<ul>
+<li><em>FileWatcher</em>: Watches your file system for changes and sends out notification signals.</li>
+<li><em>ModuleLoader</em>: Searches a directory tree for Python QML modules to load.</li>
+<li><em>PythonReloader</em>: Restarts the whole application to re-register alls Python QML modules.</li>
+<li><em>ProjectBrowser</em>: Lists all QML files in a directory tree.</li>
+<li><em>QML Loader</em>: This is the Loader component provided by Qt. It enables users to load and reload QML code at run-time.</li>
+</ul>
+<p>With these few simple components, we can easily build our own small live coding environment. Additionally, we may have some code handle errors attached to <code>sys.excepthook</code> plus a small GUI.</p>
+<h2>How does it work</h2>
+<p>The concept is as simple as it is powerful.</p>
+<p>Instead of loading our GUI application as normal, we inject the QML part of our live coding environment between the top level window and our GUI code.</p>
+<div class="wp-caption aligncenter" id="attachment_453" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml.png"><img alt="Live Coding QML applications" aria-describedby="caption-attachment-453" class="size-large wp-image-453" decoding="async" height="455" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/live-coding-qml-1024x728.png" srcset="https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml-1024x728.png 1024w, https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml-300x213.png 300w, https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml-768x546.png 768w, https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml-360x256.png 360w, https://machinekoder.com/wp-content/uploads/2018/06/live-coding-qml.png 1670w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-453">Live Coding QML applications</p></div>
+<p>For production, we can use our GUI code as usual, for development we use the live coding environment.</p>
+<p>Sometimes we have resources or loading-time expensive components. For example a 3D simulation window. We can place these components outside of our live coding environment to speed up loading time.</p>
+<h2>Structuring the Code</h2>
+<p>When working with Python and QML we have GUI code written int the QML language and business logic written in Python.</p>
+<p>Our business logic code is loaded into the GUI as QML component as part of QML module. A QML module is the equivalent of a Python module, but for QML.</p>
+<p>A QML module may contain both, QML code and Python code. Therefore, it makes sense to let the Python and QML code live together in a single directory.</p>
+<p>For example, a QML module providing logic and GUI representation of a file system browser may look as follows:</p>
+<pre><code>- [filesystem]
+  - qmldir
+  - __init__.py
+  - file_system_tree_model.py
+  - FileSystemTreeView.qml
+</code></pre>
+<p>The <code>qmldir</code> file registers the QML components into QML module. The <code>__init__.py</code> file does the same for the Python QML components.</p>
+<p>To discover Python QML module, the <code>__init__.py</code> contains a <code>register_qml_types</code> method.</p>
+<pre><code class="python"># -*- coding: utf-8 -*-
+from PyQt5.QtQml import qmlRegisterType
+
+from .file_system_tree_model import FileSystemTreeModel
+
+MODULE_NAME = 'filesystem'
+
+
+def register_types():
+    qmlRegisterType(FileSystemTreeModel, MODULE_NAME, 1, 0, FileSystemTreeModel.__name__)
+</code></pre>
+<p>This makes it easy for our <em>ModuleLoader</em> to automatically find and register any QML Python modules.</p>
+<h2>The Python Qt Live Coding Environment</h2>
+<p>To make our life as HMI engineers easier, I created a Python Qt live coding environment that comes with all the required parts to start hacking on a Python QML GUI.</p>
+<p>You can find the project on GitHub: <a href="https://github.com/machinekoder/python-qt-live-coding">python-qt-live-coding</a></p>
+<div class="wp-caption aligncenter" id="attachment_454" style="width: 310px"><a href="https://machinekoder.com/wp-content/uploads/2018/06/icon.png"><img alt="Python Qt Live Coding Environemnt" aria-describedby="caption-attachment-454" class="size-medium wp-image-454" decoding="async" height="193" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/icon-300x193.png" srcset="https://machinekoder.com/wp-content/uploads/2018/06/icon-300x193.png 300w, https://machinekoder.com/wp-content/uploads/2018/06/icon-360x232.png 360w, https://machinekoder.com/wp-content/uploads/2018/06/icon.png 512w" width="300"/></a><p class="wp-caption-text" id="caption-attachment-454">Python Qt Live Coding Environemnt</p></div>
+You can install it via pip:
+<pre><code class="bash">pip install python-qt-live-coding
+</code></pre>
+<p>The live coding environment comes with a live runner which enables you to live<br>
+code Qt GUIs quickly.</br></p>
+<p>Run following to test drive the <a href="https://github.com/machinekoder/python-qt-live-coding/tree/master/example">example</a>:</p>
+<pre><code class="bash">python_qt_live_coding examples
+</code></pre>
+<p>You will instantly see the example project in the live runner.</p>
+<div class="wp-caption aligncenter" id="attachment_455" style="width: 1042px"><a href="https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2.png"><img alt="Live Runner Example" aria-describedby="caption-attachment-455" class="size-full wp-image-455" decoding="async" height="831" loading="lazy" sizes="(max-width: 1032px) 100vw, 1032px" src="/static/blog_images/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/live_runner_example2.png" srcset="https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2.png 1032w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2-300x242.png 300w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2-768x618.png 768w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2-1024x825.png 1024w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example2-335x270.png 335w" width="1032"/></a><p class="wp-caption-text" id="caption-attachment-455">Live Runner Example</p></div>
+<p>Now you can either select the <code>MainScreen.qml</code> file or type <code>MainScreen</code> in the filter.</p>
+<p>When you type, the file will be automatically selected.</p>
+<p>When loaded you will see following.</p>
+<div class="wp-caption aligncenter" id="attachment_456" style="width: 1042px"><a href="https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example.png"><img alt="Live Coding Example 2" aria-describedby="caption-attachment-456" class="size-full wp-image-456" decoding="async" height="831" loading="lazy" sizes="(max-width: 1032px) 100vw, 1032px" src="/static/blog_images/speed-up-your-gui-development-with-python-qt-and-qml-live-coding/live_runner_example.png" srcset="https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example.png 1032w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example-300x242.png 300w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example-768x618.png 768w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example-1024x825.png 1024w, https://machinekoder.com/wp-content/uploads/2018/06/live_runner_example-335x270.png 335w" width="1032"/></a><p class="wp-caption-text" id="caption-attachment-456">Live Coding Example 2</p></div>
+<p>This is the example GUI inside the live runner.</p>
+<p>Now press the <code>Edit</code> button. Your favorite text editor should open promptly.</p>
+<p>Edit the code inside the editor and you will see the GUI updates instantly when you save the document.</p>
+<h2>Conclusion</h2>
+<p>Live coding is a great concept that can be applied to Python Qt and QML applications.</p>
+<p>The <a href="https://github.com/machinekoder/python-qt-live-coding">python-qt-live-coding</a> project brings you everything you need in a box.</p>
+<p>Additionally, it can be used as a base for a custom live-coding environment for your application.</p>
+<p>If you want to see another example that integrates QML with Python, check out <a href="https://github.com/pyqt/examples/tree/_/src/06%20QML%20Python%20example">this GitHub repository</a>.</p>
+<p>Happy coding!</p>
+<p>Your Machine Koder</p>

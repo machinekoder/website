@@ -1,0 +1,207 @@
+<!--
+{
+  "title": "Mini 3D Printer from HobbyKing running with CRAMPS Board and Machinekit",
+  "date": "2016-09-11T18:49:31",
+  "slug": "mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit",
+  "original_url": "https://machinekoder.com/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/",
+  "featured_image": "/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2275-1.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">7</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This article is about porting the <a href="http://www.hobbyking.com/hobbyking/store/__82021__Fabrikator_Mini_3D_Printer_V1_5_Transparent_UK_230V.html">Turnigy Fabrikator Mini from HobbyKing</a> to Machinekit. It explains the basics of porting a new 3D printer to Machinekit. For this purpose, the open hardware <a href="http://reprap.org/wiki/CRAMPS">CRAMPS cape</a> for the BeagleBone Black is used.</p>
+<h2>The Turnigy Fabrikator Mini / TinyBoy</h2>
+<p>I recently stumbled upon a <a href="http://www.heise.de/make/meldung/Ausprobiert-und-fuer-gut-befunden-Mini-3D-Drucker-fuer-160-Euro-3269957.html">review about a mini 3D printer for 160€ on heise.de</a>. Since I was looking for a small and portable Machinekit demonstration device I immediately ordered one <a href="http://www.hobbyking.com/hobbyking/store/__82021__Fabrikator_Mini_3D_Printer_V1_5_Transparent_UK_230V.html">from HobbyKing</a>.</p>
+<p>Unfortunately, the 3D printer seems to be always in back order, so it took ~2 months for the delivery.</p>
+<p>The Fabrikator Mini, also known as TinyBoy, has the following specs:</p>
+<ul>
+<li><strong>Size:</strong> 15cm(W) x 15cm(D) x 22cm(H) (excl. filament holder)</li>
+<li><strong>Print size:</strong> 80mm x 80mm x 80mm</li>
+<li><strong>Filament:</strong> 1.75mm PLA</li>
+<li><strong>Power supply:</strong> External 12V 6A Transformer</li>
+<li><strong>Board:</strong> mega2560 ramps1.4 with 4 A4988 stepstick</li>
+<li><strong>Software:</strong> Repetier-Host</li>
+</ul>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2275-1.jpg"><img alt="img_2275" class="alignnone size-medium wp-image-91" decoding="async" height="300" loading="lazy" sizes="(max-width: 200px) 100vw, 200px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2275-1-200x300.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2275-1-200x300.jpg 200w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2275-1-768x1152.jpg 768w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2275-1-683x1024.jpg 683w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2275-1-180x270.jpg 180w" width="200"/></a></p>
+<p>Additional interesting facts about the 3D printer are:<br>
+* The <a href="https://github.com/HKCOTA/TinyBoy">design is open source</a><br/>
+* A <a href="https://www.indiegogo.com/projects/tinyboy-2-3d-printer-for-education#/">version 2 has been funded on Indigogo</a>.</br></p>
+<h2>Replacing the Hardware</h2>
+<p>The 3D printer comes with a RAMPS board + Repetier host out of the box. Therefore, it turned out to be an easy task to replace the included hardware with a <a href="http://reprap.org/wiki/CRAMPS">CRAMPS cape</a> and <a href="https://beagleboard.org/black">BeagleBone Black</a>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2271.jpg"><img alt="img_2271" class="alignnone size-medium wp-image-87" decoding="async" height="200" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2271-300x200.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2271-300x200.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2271-768x512.jpg 768w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2271-1024x683.jpg 1024w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2271-360x240.jpg 360w" width="300"/></a></p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2268.jpg"><img alt="img_2268" class="alignnone size-medium wp-image-86" decoding="async" height="200" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2268-300x200.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2268-300x200.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2268-768x512.jpg 768w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2268-1024x683.jpg 1024w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2268-360x240.jpg 360w" width="300"/></a></p>
+<p>For this purpose, I flipped the Fabrikator Mini over and labeled all the connections using white tape and a black marker. The silk screen on the RAMPS board does help with this task.</p>
+<p>The next step is to unplug all connectors and to remove the RAMPS board from the printer.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2272.jpg"><img alt="img_2272" class="alignnone size-medium wp-image-88" decoding="async" height="200" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2272-300x200.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2272-300x200.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2272-768x512.jpg 768w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2272-1024x683.jpg 1024w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2272-360x240.jpg 360w" width="300"/></a></p>
+<p>The CRAMPS board has approximately the same size as the RAMPS board. However, including the BBB the CRAMPS board is slightly thicker than the RAMPS board. Additionally, I had to modify the case of the Mini Fabrikator for the WiFi antenna and USB cable.</p>
+<p>The CRAMPS board does not feature a power supply for the BBB. Therefore, one also needs to add a dc-dc converter. I used a cheap pre-assembled module which is available from various vendors on eBay:<br/>
+<em>"DC-DC Buck Converter Module LM2596 Constant Current &amp; Voltage Adjustable Module"</em>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/dc-dc_converter.jpg"><img alt="dc-dc_converter" class="alignnone size-medium wp-image-93" decoding="async" height="300" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/dc-dc_converter-300x300.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/dc-dc_converter-300x300.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/dc-dc_converter-150x150.jpg 150w, https://machinekoder.com/wp-content/uploads/2016/09/dc-dc_converter-270x270.jpg 270w, https://machinekoder.com/wp-content/uploads/2016/09/dc-dc_converter.jpg 600w" width="300"/></a></p>
+<p>Thanks to the labeled wires it was not hard to reconnect the 3D printer to the CRAMPS board. The <a href="http://reprap.org/mediawiki/images/5/5a/CRAMPS.v2.1.sch.pdf">CRAMPS schematic</a> helped with this task. I only needed to add connectors to the wires of the housing and hotend fan.</p>
+<p>The only difficulty I experienced while connecting the CRAMPS board was how to connect the power supply. The CRAMPS Cape supports multiple sources of energy for motors, heated build platform, extruders and auxiliary devices. Therefore, one has to connect all the power inputs of the board with the 12V power supply that comes with the 3D printer.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2274.jpg"><img alt="img_2274" class="alignnone size-medium wp-image-89" decoding="async" height="200" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/IMG_2274-300x200.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/IMG_2274-300x200.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2274-768x512.jpg 768w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2274-1024x683.jpg 1024w, https://machinekoder.com/wp-content/uploads/2016/09/IMG_2274-360x240.jpg 360w" width="300"/></a></p>
+<h2>Flashing Machinekit on the BeagleBone Black</h2>
+<p>The easiest way to setup Machinekit on the BeagleBone Black is to use <a href="http://elinux.org/Beagleboard:BeagleBoneBlack_Debian#BBW.2FBBB_.28All_Revs.29_Machinekit">Machinekit Debian images by RCN</a>.<br/>
+I will not go into details about flashing the images here. Please take a look at the <a href="http://www.machinekit.io/docs/getting-started/machinekit-images/">Machinekit documentation</a>.</p>
+<h2>Adapting the Machinekit configuration</h2>
+<p>Once the hardware is ready and we have installed Machinekit on the BeagleBone Black it is time to create a Machinekit configuration.</p>
+<p>As always, I recommend starting from an existing Machinekit configuration. Usually one can find existing example configuration in the <a href="https://github.com/machinekit/machinekit/tree/master/configs">Machinekit source tree</a>. However, there are no configurations in there using the Python FDM modules. I plan to push them shortly.</p>
+<p>For now it is best to start of with one of the following configurations:</p>
+<ul>
+<li><a href="https://github.com/machinekoder/UNI-PRINT-3D/">UNI-PRINT-3D configuration</a></li>
+<li><a href="https://github.com/machinekoder/MendelMax-CRAMPS">MendelMax-CRAMPS configuration</a></li>
+</ul>
+<p>The latter one is slightly more suitable since it already uses the CRAMPS board. I ended up intermixing both configurations since the <em>UNI-PRINT-3D</em> configuration contained the most recent FDM libraries.</p>
+<h3>Directory structure</h3>
+<p>I based the new configuration the <a href="https://github.com/machinekoder/MendelMax-CRAMPS">MendelMax-CRAMPS configuration</a>. First of all I renamed the following files:</p>
+<ul>
+<li>CRAMPS.ini -&gt; fabrikator-mini.ini</li>
+<li>mendelmax.py -&gt; fabrikator_mini.py</li>
+</ul>
+<p>Furthermore, I copied the <code>fdm</code> folder from the <a href="https://github.com/machinekoder/UNI-PRINT-3D/">UNI-PRINT-3D configuration</a> and removed the <code>config</code> folder.</p>
+<pre><code>.
+??? cramps2_cape.bbio
+??? cramps.py
+??? fabrikator-mini.ini
+??? fabrikator_mini.py
+??? fdm
+??? launcher.ini
+??? pru-stepper.var
+??? README.md
+??? rs274ngc.var
+??? run.py
+??? storage.ini
+??? tool.tbl
+</code></pre>
+<h2>fabrikator-mini.ini</h2>
+<p>First of all, I adapted the machine parameters in the <code>fabrikator-mini.ini</code>. The Fabrikator Mini does not come with a list of configuration parameters. Therefore, I had to look up the information on the internet and found a matching<br/>
+<a href="http://xythobuz.de/2016_03_24_marlin_fabrikator_mini.html">Marlin Tinyboy configuration</a>.</p>
+<p>The relevant information is:</p>
+<ul>
+<li>X/Y axis steps/mm: <code>201.01</code></li>
+<li>Z axis steps/mm: <code>6366.88</code></li>
+<li>Extruder steps/mm <code>97.11</code></li>
+</ul>
+<p>First of all, I changed <code>[EMC]MACHINE</code> to <code>Fabrikator Mini CRAMPS</code>.</p>
+<p>Next, I changed the parameter <code>[HAL]HALFILE</code> to <code>fabrikator_mini.py</code>.</p>
+<p>Then one needs to adapt the <code>[AXIS_n]</code> parameters. I left most of the configuration file untouched and edited following parameters:</p>
+<h4><code>AXIS_0</code></h4>
+<ul>
+<li><code>MIN_LIMIT = -40</code></li>
+<li><code>MAX_LIMIT = 40</code></li>
+<li><code>HOME_OFFSET = 40</code></li>
+<li><code>SCALE = 201.01</code></li>
+</ul>
+<h4><code>AXIS_1</code></h4>
+<ul>
+<li><code>MIN_LIMIT = -40</code></li>
+<li><code>MAX_LIMIT = 40</code></li>
+<li><code>HOME_OFFSET = 40</code></li>
+<li><code>SCALE = 201.01</code></li>
+</ul>
+<h4><code>AXIS_2</code></h4>
+<ul>
+<li><code>MIN_LIMIT = -5.0</code></li>
+<li><code>MAX_LIMIT = 80.0</code></li>
+<li><code>SCALE = 6366.88</code></li>
+</ul>
+<p>Then I added parameters to fix the <a href="https://groups.google.com/forum/#!topic/machinekit/DPq1J-ISSwM">"PRU pin hunting" problem</a> to each <code>AXIS</code>.</p>
+<pre><code># PID tuning params for
+# workaround for PRU dir pin problems
+DEADBAND =              0
+P =                     90
+I =                     0
+D =                     0
+FF0 =                   0
+FF1 =                   1
+FF2 =                   0.00005
+BIAS =                  0
+MAX_OUTPUT =            0
+MAX_ERROR =             0.0005
+</code></pre>
+<p>Next, I modified the <code>[EXTRUDER_0]</code> section:</p>
+<ul>
+<li><code>[EXTRUDER]THERMISTOR</code> is the same as on MendelMax with E3D v6 <code>epcos_B57560G1104</code>.</li>
+<li><code>[EXTRUDER_0]SCALE = -97.11</code></li>
+</ul>
+<p>The last thing I needed to modify in the INI file is the <code>[FDM]</code> section:</p>
+<pre><code>[FDM]
+VELOCITY_EXTRUSION_ENABLE = 1
+NUM_EXTRUDERS = 1
+NUM_FANS = 0
+NUM_LIGHTS = 0
+HAS_HBP = 0
+</code></pre>
+<h3>storage.ini</h3>
+<p>The <code>storage.ini</code> is used by the <code>hal_storage</code> component to expose run-time changeable configuration parameters. In this file, we need to change the extruder settings to match the parameters found in the manual that comes with the printer.</p>
+<pre><code>[E0]
+retract-len = 4.5
+filament-dia = 1.75
+retract-vel = 40.0
+</code></pre>
+<h3>fabrikator_mini.py</h3>
+<p>The <code>fabrikator_mini.py</code> file is the main HAL configuration file of the 3D printer.</p>
+<p>First of all, I adapted the file to use <code>import fdm.config</code> instead of <code>import config</code>. The reason for this change is that the Python FDM library is now structured differently.</p>
+<p>Next, I added <code>thread='servo-thread'</code> to the <code>setup_stepper</code> functions. This modification is necessary due to the "PRU pin hunting" fix.</p>
+<p>Then, I moved <code>hal.addf('motion-controller', 'servo-thread')</code> after <code>hal.addf('motion-command-handler', 'servo-thread')</code> to correct the wrong execution order.</p>
+<p>Since the E3D hotend comes with a cooling fan, I had to modify the extruder setup function. Therefore, I added <code>hardware.setup_exp('exp%i' % i)</code> before the <code>create_temperature_control</code> call.</p>
+<p>Additionally, I added <code>hasHbp = c.find('FDM', 'HAS_HBP')</code> in the beginning of the file. The variable is then used to disable the heated bed for this 3D printer.</p>
+<p>If you want to create a Machinekit configuration for your 3D printer you can now use the newly created configuration file. The modification above should help to make setting up a new 3D printer easier.</p>
+<h3>cramps.py</h3>
+<p>The <code>cramps.py</code> contains the hardware and pin configuration of the machine. If you create a new Machinekit configuration, it is very likely that you will need to modify this file.</p>
+<p>In this file I added the following code snipped:</p>
+<pre><code class="python">def setup_exp(name):
+    hal.newsig('%s-pwm' % name, hal.HAL_FLOAT, init=0.0)
+    hal.newsig('%s-pwm-enable' % name, hal.HAL_BIT, init=False)
+</code></pre>
+<p>This function is used in the <code>fabrikator_mini.py</code> to create the exp (for expansion) signals.</p>
+<p>Furthermore, I needed to modify the PWM and limit pin configuration in the <code>setup_hardware</code> function. In particular, I reassigned FET 5 and FET6 of the CRAMPS board to stepper and hotend cooling fans. Additionally, I had to change the <code>invert</code> pin of the limit switches.</p>
+<h3>run.py</h3>
+<p>This file starts the Machinekit configuration. In this file I needed to change the name of the ini file supplied to <code>linuxcnc</code> and the <code>-n</code> name argument of the <code>configserver</code>.</p>
+<h2>Automatically start the Machinekit configuration</h2>
+<p>Per default, the Machinekit configuration does not start when booting the machine. To change this behavior we have to tell <em>systemd</em> to start the application at boot.</p>
+<p>First, we need to create a new Systemd service:</p>
+<pre><code class="bash">sudo nano /etc/systemd/system/tinyboy.service
+</code></pre>
+<p>With the following content:</p>
+<pre><code class="ini">[Unit]
+Description=Starts my the Machinekit configuration
+After=syslog.target network.target ap-hotspot.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python /home/machinekit/repos/Fabrikator-Mini-CRAMPS/run.py
+User=machinekit
+LimitMEMLOCK=33554432
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<p>Next, we can test and start the service:</p>
+<pre><code class="bash">sudo systemctl daemon-reload
+sudo systemctl start tinyboy.service
+</code></pre>
+<p>Wait a few seconds and check the status of the service:</p>
+<pre><code class="bash">sudo systemctl status tinyboy.service
+</code></pre>
+<p>After you have approved that everything works fine its time to enable the service to be started at boot:</p>
+<pre><code class="bash">sudo systemctl enable tinyboy.service
+</code></pre>
+<p>The configuration should now start at every system boot.</p>
+<h2>Install and run Machineface</h2>
+<p>As user interface for the Fabrikator Mini, we can use <a href="https://github.com/machinekoder/Machineface">Machineface</a>. It is a generic 3D printer UI for desktop and tablets.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/machineface_Fabrikator.png"><img alt="machineface_fabrikator" class="alignnone size-medium wp-image-84" decoding="async" height="179" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/mini-3d-printer-from-hobbyking-running-with-cramps-board-and-machinekit/machineface_Fabrikator-300x179.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/machineface_Fabrikator-300x179.png 300w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_Fabrikator-768x458.png 768w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_Fabrikator-1024x611.png 1024w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_Fabrikator-360x215.png 360w" width="300"/></a></p>
+<p>First, we need to clone the repository on the BeagleBone:</p>
+<pre><code class="bash">cd
+git clone https://github.com/machinekdoer/Machineface.git
+</code></pre>
+<p>The UI is then ready to be deployed by <code>configsever</code>.</p>
+<p>Once this step is completed, it is time to download and start the <a href="https://github.com/machinekoder/MachinekitClient">MachinekitClient</a>. The most recent builds can be found <a href="http://buildbot.roessler.systems/files/machinekit-client/">here</a>.</p>
+<p>Once started you should be able to discover the Machinekit instance on the network. In some cases, you need to configure the host address manually. E.g. if you want to use the BeagleBone USB ethernet you need to enter <code>192.168.7.2</code> in <em>Unicast</em> mode.</p>
+<h2>Cura configuration</h2>
+<p>I will not go into details about how to create a Cura configuration for Machinekit. You can find details about this task in a <a href="https://machinekoder.com/?p=9">recent blog post</a>.</p>
+<p>You can find a working configuration on my <a href="https://github.com/machinekoder/fabrikator-mini-cura">GitHub page</a>.</p>
+<h2>Summary</h2>
+<p>In this blog post, I have described how to port the Turnigy Fabrikator Mini to Machinekit.</p>
+<p>The information may not only be useful if you have the same 3D printer but also if you plan to create a new Machinekit configuration for another printer.</p>
+<p>Additionally, it also explains how to start a Machinekit configuration at boot and how to install Machineface.</p>
+<p>You can find the resulting configuration on <a href="https://github.com/machinekoder/Fabrikator-Mini-CRAMPS">Github</a>.</p>
+<p>I hope this blog post was interesting for you and I would like to hear you feedback.</p>
+<p>Your<br/>
+Machine Koder</p>

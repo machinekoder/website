@@ -1,0 +1,93 @@
+<!--
+{
+  "title": "Choosing Qt for Python or Qt C++?",
+  "date": "2019-04-08T07:32:25",
+  "slug": "choosing-qt-for-python-or-qt-cpp",
+  "original_url": "https://machinekoder.com/choosing-qt-for-python-or-qt-cpp/",
+  "featured_image": "/static/blog_images/choosing-qt-for-python-or-qt-cpp/qtpy_vs_cppqt.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">8</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this article, you will learn the differences between choosing <a href="https://www.python.org/">Python</a> or C++ as programming language when working with the Qt framework.</p>
+<p>In many aspects, the comparison between <a href="https://wiki.qt.io/Qt_for_Beginners">Qt/C++</a> vs. <a href="https://www.qt.io/qt-for-python">Qt/Python</a> boils down to comparing C++ with Python. However, in some points, the particular differences between the Python bindings for Qt and the native Qt/C++ implementation are a major deciding factor regardless of your programming language preference. Therefore, I encourage you to read this article, even if you have a strong preference for one or the other programming language.</p>
+<h2>From C++ to Python</h2>
+<p>It was September 2012 at university when I first was introduced to the programming language Python. At first, Python felt completely alien to me, coming from C++ and C as main programming languages.</p>
+<p>It took me two more years to actively use Python for something bigger than a few shell script replacements when I started the <a href="http://www.machinekit.io/">Machinekit</a> open source motion control software project with a few fellow open source developers.</p>
+<p>Although I used Python in a few <a href="https://www.gtk.org/">Gtk</a> GUI projects, I haven't seen Python as a good alternative for C++ in combination with Qt until December of 2017. One of the biggest reasons for me was the portability of my code for different platforms, including Windows, Linux, OS X and, Android.</p>
+<p>However, in December 2017 I started to work on a Linux-only project with PyQt. The work on these projects opened my eyes. I literally could do the same things I did with Qt/C++ with Python but in roughly one-third of the time.</p>
+<p>Since then, I use the Python Qt combination in more and more projects and, I don't regret my choice.</p>
+<h2>PyQt vs. PySide / Qt for Python</h2>
+<p>Confusing for most people when starting with Qt and, Python is the fact that there a two different Python bindings for Qt, <a href="https://riverbankcomputing.com/software/pyqt/intro">PyQt</a> and <a href="https://www.qt.io/qt-for-python">PySide2</a> also known as Qt for Python.</p>
+<p>In short, Qt for Python is the officially supported binding and in most cases the way to go. For more details, you can read my article about <a href="https://machinekoder.com/pyqt-vs-qt-for-python-pyside2-pyside/">this topic</a>.</p>
+<h2>Lines of Code</h2>
+<p>Lines of code are not the best measure for code quality or developer efficiency. However, it is proven that shorter code is more maintainable than longer code.</p>
+<p>I'm not talking about clever one-liners, which are often hard to read, but the overall lines of code it takes to implement a particular feature.</p>
+<p>When comparing different programming languages, the same features takes roughly ten times the amount of LOCs to implement in a low-level language such as C vs. a high-level programming language such as Python.</p>
+<p>When comparing system languages, such as C++ to high-level language such as Python, the factor goes down to roughly three, which is still a lot in terms of maintainability and also development effort.</p>
+<p>Where does this difference in the amount of code needed to implement a project come from? Partly from the differences in syntax, Python does not use braces, but mostly due to the extensive standard library and high-level language features. As people say, Python comes batteries included.</p>
+<p>When comparing Qt/C++ to Python, we need to keep in mind that Qt strongly complements the features of the C++ standard library. Therefore, in comparison to raw C++, especially before C++11, we end up with a comparison factor roughly around 2.5</p>
+<h2>Development Speed</h2>
+<p>One of the biggest advantages of Python compared to C++ is the development speed of projects with this language.</p>
+<p>But why is it so much faster to develop a project with Python compared to C++? Here are the top 5 reasons I discovered:</p>
+<ul>
+<li>Python is a scripting language, no need to recompile the code.</li>
+<li>Python has a simpler syntax, no braces.</li>
+<li>Python comes with batteries included, also known as the extensive standard library.</li>
+<li>Python uses dynamic-typing, no need to define data types when not necessary.</li>
+<li>Python has a package manager and a huge collection of open source libraries.</li>
+</ul>
+<p>Overall, these factors multiply the development velocity of a Python Qt project compared to a C++ Qt project manifold. Since developer times is valuable, this fact should definitely be considered when choosing the programming language for a project.</p>
+<h2>Popularity</h2>
+<p>The Python programming language has become very popular in the last few years due to the rise of data science and machine learning.</p>
+<p>Python is ranked as the <a href="https://github.blog/2018-11-15-state-of-the-octoverse-top-programming-languages/">third most popular programming language on GitHub</a>. In comparison, C++ ranks as the fifth most popular programming language.</p>
+<p>You may ask why it is essential that the programming language you choose for a project is widespread. The answer is simple, with popularity comes to a bigger community, more libraries, more developers and higher discovery rate of issues in the programming language and its tools.</p>
+<p>From a business standpoint, the popularity of a programming language and tools is also very important. It doesn't matter if you are a small or big company or if you prefer working with contractors or employing developers, it is significantly harder to find someone already pre-qualified to work on your project if the programming language or framework you choose is very niche.</p>
+<p>Of course, a sound engineer can quickly learn a new framework or even a new programming language. In my opinion, it's more important that the developer is good in solving a certain problem, such as creating HMIs, rather than working with specific tools.</p>
+<p>However, the overall starting phase of a project is significantly shorter when people working on the project are already familiar with the tools and languages. This is especially crucial for small projects.</p>
+<h2>Portability and Deployment</h2>
+<p>One primary reason for choosing Qt over let's say the platforms native GUI framework is the possibility to run one application on multiple platforms with a single code base.</p>
+<p>C++ and Python are both platform independent programming languages. However, platform support and deployment significantly vary between the two.</p>
+<p>Almost all platforms I know support C++ as a programming language, especially if they are capable of running a Qt-based user interface. On the contrary, Python is not supported on many embedded systems and only poorly supported by the dominant mobile OS.</p>
+<p>If you are going for mobile and desktop support or your target is an embedded device, Qt for Python is no valid choice at the moment. PyQt claims to support Android and iOS, but other developers and I failed to reproduce the claims.</p>
+<p>Also important to mention is, that Qt/C++ provides consistent tooling for all platforms. This includes deployment tool, remote debugging and the Qt Creator IDE, which is my opinion an excellent choice for Qt/C++ developers.</p>
+<p>Another recent development is <a href="https://wiki.qt.io/Qt_for_WebAssembly">Qt for WebAssembly</a>. In short, Qt for WASM enables you to deploy your Qt/C++ applications in WebAssembly format, which means they run inside a web browser on all WebAssembly supported OS.</p>
+<p>In my opinion, <a href="https://webassembly.org/">WebAssembly</a> is a major game-changer in web frontend and desktop UI world. It combines the advantages of web applications, including continuous and straightforward deployment, with the benefits of the system UI development  world.</p>
+<p>Python is currently not well supported by WebAssembly, but things might change in the future. If you want to try out web development with Qt soon, choose Qt/C++.</p>
+<h2>Quality Assurance</h2>
+<p>Python and C++ are two inherently different programming languages. How to apply Quality Assurance (QA) measures to a project strongly depends on the programming language; the differences between the Python bindings of Qt and Qt/C++ are less relevant.</p>
+<p>A huge difference between Python and C++ is that Python uses so-called duck-typing and C++ uses static typing. Also in Python, types are dynamically assigned and changed at runtime, which can lead to various runtime errors on the boundary to external systems and when  input types aren't checked correctly.</p>
+<p>In C++, many type errors and mistakes can be caught when compiling the application. Similar static analysis tools are available for Python, but many conditions can only be evaluated at runtime. Therefore, it's even more critical to test Python code thoroughly.</p>
+<p>Another essential difference between C++ and Python is how memory management works. Qt/C++ uses a parent-child relationship in its object to free up memory. Python, on the other hand, has a garbage collector. In C++ it's straightforward to build applications with memory leaks when not being careful. Compared to C++ and even Qt's memory management, Python is a lot easier to use, at the cost flexibility.</p>
+<p>Moreover, it is impossible at the moment to certify Python code for safety-relevant applications such as required in the automotive or aerospace industries.</p>
+<h3>Testing</h3>
+<p>When it comes to testing, Python starts to shine again. Pythons duck-typing makes testing-related tasks such as writing mocks for classes and modules very easy and straightforward.</p>
+<p>Moreover, Python as a scripting language does not need to be recompiled for running unit tests, which makes test-driven development (TDD) much faster and more fun to work with.</p>
+<p>I also would like to highlight the Python testing framework <a href="https://docs.pytest.org/en/latest/">Pytest</a> at this point. Pytest makes writing tests as comfortable as possible. A simple unit test is no more than a Python function inside a Python file next to the source code of the Python module to test. Compared to that, writing a test in C++ is usually a lot more work.</p>
+<p>When it comes to testing, keeping things simple is critical. Developers are lazy (that's usually a good thing) so simpler test code increases the likelihood of tests to be written during development and not in the last minute before completing a project.</p>
+<h2>Performance</h2>
+<p>When comparing Python and C++ people quickly begin to talk about performance. In almost all Benchmarks, Python programs are significantly slower than C++ applications.</p>
+<p><a href="https://www.quora.com/How-fast-is-Python-compared-to-C-C++">Most benchmarks</a> compare the performance of computing mathematical and algorithmic problems or I/O intensive tasks. C++ is significantly more suitable for these types of applications. With the right library usage, for example <code>numpy</code> for mathematical applications, the performance of Python can be improved, but still, will never reach the performance of a C++ application.</p>
+<p>But what's most important for us is, how the does Qt for Python perform compared to Qt/C++. For this purpose, benchmarking the computational and I/O performance of the programming language and interpreter does not help us.</p>
+<p>Especially front-end and HMI applications are idle most of the time. The only thing that matters when creating an HMI application is that the UI interactions are as fast possibly perceivable by a human. We don't want to have a UI that feels sluggish and slow, and we don't need a UI that can be operated by super-humans.</p>
+<h2>Features and Issues</h2>
+<ul>
+<li>PyQt / Qt for Python less used -&gt; less tested</li>
+<li>Binding bugs on top Qt/C++ bugs</li>
+<li>some showstoppers, but infrequently</li>
+<li>most just annoying and undocumented (see my blog post)</li>
+</ul>
+<p>Another vital factor to consider when choosing Qt/Python over Qt/C++ is the number of open issues and missing features. In short, since the Python bindings for Qt wrap the Qt/C++ bindings, you will get the problems of the Python binding on top of Qt's issues.</p>
+<p>Moreover, it's worth mentioning that both Qt/Python bindings have combined fewer users than Qt/C++ and, therefore, bugs and issues are later or never discovered. For example, I found at least three problems when working on a bigger project with Qt and Python, which were related entirely to the Python bindings and not the Qt framework itself.</p>
+<p>However, I found only a few real showstoppers, most of the bugs and issues I found where just undocumented behavior which could be worked around.</p>
+<h2>Development Environment</h2>
+<p>Choosing a development environment for Qt/Python is very different from selecting a development environment for Qt/C++. For Qt/C++, Qt Creator is an excellent choice, but we also have other options such as MS Visual Studio with the Qt plugin.</p>
+<p>However, when searching for an IDE that supports both, Qt and Python very well, we quickly run out of options. Either we have good Qt/QML support or we have good Python support.</p>
+<p>The Qt Company is working on better support for Python in Qt Creator, but in the meantime, I recommend to use a good Python IDE, and either use Qt Creator for the Qt Quick/Widget designer or the QML support most IDEs provide.</p>
+<p>I personally use <a href="https://www.jetbrains.com/clion/">CLion</a> as IDE, since it supports both C++ and Python (it integrates <a href="https://www.jetbrains.com/pycharm/">PyCharm</a>) as well QML. The Qt/QML support is not perfect, but I can live with that, since I use <a href="https://machinekoder.com/qt-qml-live-coding-for-everyone/">live-coding</a>.</p>
+<h2>Summary and Conclusion</h2>
+<p>The following graphic summarizes all the differences between Qt/C++ and Qt/Python.</p>
+<div class="wp-caption aligncenter" id="attachment_600" style="width: 650px"><a href="http://machinekoder.com/wp-content/uploads/2019/04/py_vs_cpp.png"><img alt="Qt/Python and Qt/C++ comparison chart" aria-describedby="caption-attachment-600" class="size-large wp-image-600" decoding="async" height="249" loading="lazy" src="/static/blog_images/choosing-qt-for-python-or-qt-cpp/py_vs_cpp-1024x399.png" width="640"/></a><p class="wp-caption-text" id="caption-attachment-600">Qt/Python and Qt/C++ comparison chart</p></div>
+<p>Having Python as an option for writing the business logic of your Qt application is tremendous and drastically speeds up development. It certainly opens up new possibilities due to the enormous ecosystem of the Python programming language and community.</p>
+<p>On the other hand, the Qt for Python bindings are less tested and contain more issues compared to the C++ equivalents. Moreover, Python is not a suitable programming language for safety-relevant applications. Little support for mobile and embedded applications might be another issue relevant for your use case.</p>
+<p>In short, I can recommend trying out Qt/Python for your next application if you are not working in a safety critical environment and you are not interested in mobile support at the moment. With Qt, you are always free to use C++ for the performance critical tasks if necessary. I'm very sure your business and project will benefit from the Pythons development efficiency boost.</p>
+<p>Your<br>
+Machine Koder</br></p>

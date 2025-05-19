@@ -1,0 +1,225 @@
+<!--
+{
+  "title": "Machinetalk explained Part 3: Technologies",
+  "date": "2016-11-27T10:31:22",
+  "slug": "machinetalk-explained-part-3-technologies",
+  "original_url": "https://machinekoder.com/machinetalk-explained-part-3-technologies/",
+  "featured_image": "/static/blog_images/machinetalk-explained-part-3-technologies/machinetalk_overview.svg.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">7</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is a continuation of my Machinetalk explained series describing the concepts and ideas behind the Machinetalk middleware.</p>
+<p>This part is about the technologies and building blocks of Machinetalk <a href="http://zeromq.org/">ZeroMQ</a>, <a href="https://developers.google.com/protocol-buffers/">Protobuf</a> and <a href="http://www.dns-sd.org/">DNS-SD over mDNS</a>.</p>
+<p>The previous parts are:</p>
+<ul>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-1-introduction/">Part 1: Introduction</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-2-middleware-requirements/">Part 2: Middleware Requirements</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-4-hal-remote/">Part 4: HAL Remote</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-5-code-generation/">Part 5: Code Generation</a></strong></li>
+</ul>
+<h2>Message Transport - ZeroMQ</h2>
+<p>Machinetalk uses <a href="http://zeromq.org/">ZeroMQ</a> as a transport library which is an asynchronous low-latency messaging library developed by iMatix.</p>
+<p>iMatix authorizes the ZeroMQ library under the terms of the GNU LGPLv3 open-source license.</p>
+<p>ZeroMQ is not only a networking library but also a concurrency framework. The messaging middleware abstracts the underlying networking protocols and provides socket communication over different transports, including in-process, inter-process, Transmission Control Protocol (TCP) and several multicast protocols.</p>
+<p>Compared to other messaging middleware, ZeroMQ provides a lower level of abstraction. This leads to an overall smaller footprint and code as well as binary size compared to similar middleware solutions [zotpress items="JSVMV3UC" style="IEEE"]. Basically, the ZeroMQ API is similar to Unix domain sockets.</p>
+<p>The messaging library provides a small set of transport dependent Quality of Service (QoS) parameters. However, it is important to know that ZeroMQ does not provide application level QoS features. The reason stated in the ZeroMQ documentation is the following: <em>“Implementing QoS on middleware level (as done in most messaging systems) proves inadequate once physical network issues are taken into account.”</em> [zotpress items="HI3MXT57" style="IEEE"]. This design decision is a fundamental difference to middleware alternatives such as <a href="http://portals.omg.org/dds/">DDS</a>.</p>
+<p>As <a href="http://design.ros2.org/articles/ros_with_zeromq.html">pointed out by Woodall</a> analyzing the messaging library as middleware for ROS2, ZeroMQ is not a complete middleware solution to be used out of the box. It is required to combine it with assisting serialization and service discovery libraries to use it to create a complete middleware for distributed systems.</p>
+<p>Similar to other messaging libraries, ZeroMQ provides different N-to-N networking patterns to connect sockets. The two networking patterns used in Machinetalk are the 1-to-1 <em>ROUTER-DEALER</em> pattern and the N-to-N <em>PUB-SUB</em> pattern (see the diagram below).</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/zeromq_patterns_overview.svg.png"><img alt="zeromq_patterns_overview-svg" class="aligncenter size-large wp-image-213" decoding="async" height="473" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-3-technologies/zeromq_patterns_overview.svg-1024x756.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/zeromq_patterns_overview.svg-1024x756.png 1024w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_patterns_overview.svg-300x222.png 300w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_patterns_overview.svg-768x567.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_patterns_overview.svg-360x266.png 360w" width="640"/></a></p>
+<p>The ZeroMQ <em>ROUTER-DEALER</em> pattern is a particular form of the request-reply messaging pattern that enables completely asynchronous communication between service provider and service consumer. Each dealer socket has a unique identity that the router can use to return messages to the corresponding destination nodes. Moreover, using the internal addressing mechanism it is easily possible to chain several router sockets to <a href="http://zguide.zeromq.org/page:all">create a message broker</a>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/zeromq_brokers.svg.png"><img alt="zeromq_brokers-svg" class="aligncenter size-large wp-image-214" decoding="async" height="351" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-3-technologies/zeromq_brokers.svg-1024x562.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/zeromq_brokers.svg-1024x562.png 1024w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_brokers.svg-300x165.png 300w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_brokers.svg-768x421.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/zeromq_brokers.svg-360x198.png 360w" width="640"/></a></p>
+<p>The ZeroMQ <em>PUB-SUB</em> pattern uses message topics. A topic is a string describing the context of a message. A subscriber can subscribe to one, many or all topics at the same time. Depending on the transport either subscriber or publisher nodes filter the message topics.</p>
+<p>ZeroMQ uses prefix matching and does not support wildcard or regular expression matching. Multicast transports provide no methods for the subscriber to communicate with the publisher. Therefore, topic filtering happens on the subscriber side. However, Source-Specific Multicast (SSM) transports provide better scalability for multiple subscribers compared to unicast transports since the distribution of<br>
+packages is managed by network interfaces and routers [zotpress items="MDGCN3PI" style="IEEE"].</br></p>
+<p>In case an unicast transport such as TCP is used, ZeroMQ provides ways of informing publishers about subscribers subscribing and unsubscribing from topics. Machinetalk uses this feature is used for syncing purposes.</p>
+<p>The popularity of web applications has increased in the last few years. Therefore, it seems only logical to provide a way for web applications to use Machinetalk. ZeroMQ is not available natively for web browsers. Thus, Machinetalk uses a message broker that bridges ZeroMQ connections to <a href="https://en.wikipedia.org/wiki/WebSocket">WebSockets</a>, which is a standardized web technology.</p>
+<h2>Message Serialization</h2>
+<p>For data serialization, Machinetalk uses <a href="https://developers.google.com/protocol-buffers/">Protocol Buffers (Protobuf)</a>. <a href="https://developers.google.com/protocol-buffers/docs/overview"><em>“Protocol buffers are a flexible, efficient, automated mechanism for serializing structured data”</em>.</a> Google has developed Protobuf for in-house use in communication protocols and persistent data storage. Moreover, the specification and tools have been open sourced with version two of the Protobuf library.</p>
+<p>In contrast to the <a href="http://www.w3schools.com/xml/">XML</a> and <a href="http://www.json.org/">JSON</a> Protobuf is a binary serialization format. Therefore, serialized Protobuf messages are not human readable. However, compared to most other binary formats such as <a href="http://www.isd.mel.nist.gov/projects/rcslib/NMLcpp.html">NML</a>, Protobuf provides full introspection support. Protobuf messages are in general not self-explanatory but can be decoded with the correct message description (see the diagram below).</p>
+<p>Advantages of Protobuf compared to JSON and XML are faster parsing speeds and smaller message size [zotpress items="4BPTPQ8V,J9TRU4DW" style="IEEE"]. Furthermore, Protobuf message fields are numbered and allow backward compatibility. The Protobuf message parser ignores unknown fields and initializes missing fields with default values. This behavior enables backward compatibility inside application code without explicit version checking.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg.png"><img alt="protobuf_communication-svg" class="aligncenter size-medium wp-image-215" decoding="async" height="159" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/machinetalk-explained-part-3-technologies/protobuf_communication.svg-300x159.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg-300x159.png 300w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg-768x406.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg-1024x541.png 1024w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg-360x190.png 360w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_communication.svg.png 1612w" width="300"/></a></p>
+<p>Protobuf uses an IDL for defining the message structure. The <em>.proto</em> files containing the IDL definitions are used as input for a language-specific code generator named <em>protoc</em>. The code generator creates source files in the target programming language which can be used to encode, decode and store data in memory.</p>
+<pre><code class="proto">message Person {
+  required string name = 1;
+  required int32 id = 2;
+  optional string email = 3;
+}
+</code></pre>
+<p>Protobuf per default supports the programming languages Python, C++, and Java. Community implementations provide further language support such as for <a href="https://github.com/dcodeIO/ProtoBuf.js/">JavaScript</a>.</p>
+<p>However, Protobuf also has disadvantages compared to self-descriptive serialization formats. Protobuf requires that message sender as well as message receiver possess a valid message descriptor. This limitation supplements additional complexity, especially in prototyping environments. Furthermore, generating the language-specific classes from the IDL definition files requires an extra step in the build chain.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/protobuf_package.svg.png"><img alt="protobuf_package-svg" class="aligncenter size-medium wp-image-211" decoding="async" height="98" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/machinetalk-explained-part-3-technologies/protobuf_package.svg-300x98.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/protobuf_package.svg-300x98.png 300w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_package.svg-768x252.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_package.svg-360x118.png 360w, https://machinekoder.com/wp-content/uploads/2016/11/protobuf_package.svg.png 1012w" width="300"/></a></p>
+<p>The Protobuf library per default does not support self-descriptive messages. Therefore, the receiver of a Protobuf encoded message needs to know which type of message has been received to decode the message payload. The Machinetalk approach to solving this problem is to use a single top-level message to store the actual Machinetalk message type inside the Protobuf message as depicted in the picture above.</p>
+<p>Furthermore, the Machinetalk message format has been designed with memory and computation power constrained environments in mind. Instead of using a Protobuf sub-message per Machinetalk message, the Machinetalk message format encourages the reuse of Protobuf fields between different Machinetalk messages. As a result, the correlation between Machinetalk messages and Protobuf messages is N to 1.</p>
+<h2>Service Discovery</h2>
+<p>For service discovery, Machinetalk uses the <a href="http://www.zeroconf.org/">Zeroconf</a> service discovery technology <a href="http://www.dns-sd.org/">DNS-SD</a> over <a href="http://www.multicastdns.org/">mDNS</a>. This technology enables service discovery on link-local networks without dedicated DNS servers. mDNS uses the DNS protocol over multicast UDP on IPv4 address 224.0.0.251 or IPv6 address FF02::FB and port 5353. Responses to mDNS queries are cached and pruned to reduce network traffic.</p>
+<p>DNS-SD makes use of the following DNS records reserved for service discovery:</p>
+<ul>
+<li><strong>PTR records</strong> map service names to service instances. A PTR DNS query returns a list of<br/>
+service instances.</li>
+<li><strong>SRV records</strong> usually contain link-local hostnames which can be resolved by an A or AAAA mDNS query. Sophisticated clients can resolve link-local as well as wide-area DNS hostnames.</li>
+<li><strong>A and AAAA records</strong> are used to resolve IPv4 and IPv6 addresses with a hostname.</li>
+<li><strong>TXT records</strong> contain service specific properties stored as key-value pairs.</li>
+</ul>
+<p>Machinetalk uses the DNS TXT records to announce additional information about services:</p>
+<ul>
+<li><strong>dsn:</strong> The <em>dsn</em> property stores the ZeroMQ address of a service. ZeroMQ does support multiple means of transport. However, ZeroMQ cannot automatically negotiate the protocol type upon service connection.</li>
+<li><strong>uuid:</strong> The <em>uuid</em> property contains the Machinekit instance Universally Unique Identifier (UUID). This Machinekit UUID is used to collate services with Machinekit instances.</li>
+<li><strong>instance:</strong> This property stores the process instance UUID of services. The value is used to detect service restarts and service announcements on multiple interfaces.</li>
+<li><strong>version:</strong> The version property carries the service version id. The version id is be used to negotiate service versions before connecting.</li>
+</ul>
+<p>The illustration shows the typical flow of an <em>mDNS/DNS-SD</em> service discovery look-up.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1.png"><img alt="service_discovery-svg" class="aligncenter size-large wp-image-221" decoding="async" height="692" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-3-technologies/service_discovery.svg-1-947x1024.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1-947x1024.png 947w, https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1-277x300.png 277w, https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1-768x830.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1-250x270.png 250w, https://machinekoder.com/wp-content/uploads/2016/11/service_discovery.svg-1.png 1972w" width="640"/></a></p>
+<ol>
+<li>First, the client creates a query for the service specification <em>PTR</em> record in the form of <code>_&lt;service&gt;._sub._machinekit._tcp._local.</code>.</li>
+<li>The server returns a response with a list of DNS records in the following form: <code>&lt;service instance name&gt;._&lt;service&gt;._sub._machinekit._tcp._local.</code></li>
+<li>The next step for the client is to query the <em>SRV</em> and <em>TXT</em> records for the received responses.</li>
+<li>Some server implementations return <em>SRV</em> as well as <em>A</em> or <em>AAAA</em> records as part of the reply to the <em>PTR</em> query to improve network efficiency. However, other implementations require querying for these records manually.</li>
+</ol>
+<h2>Services, Components and Protocols</h2>
+<p>ZeroMQ, Protobuf and mDNS/DNS-SD are the building blocks of Machinetalk. To glue this building blocks together, Machinetalk organizes itself into service and components.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/11/machinetalk_terms2.svg.png"><img alt="machinetalk_terms2-svg" class="aligncenter size-large wp-image-210" decoding="async" height="449" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-3-technologies/machinetalk_terms2.svg-1024x718.png" srcset="https://machinekoder.com/wp-content/uploads/2016/11/machinetalk_terms2.svg-1024x718.png 1024w, https://machinekoder.com/wp-content/uploads/2016/11/machinetalk_terms2.svg-300x210.png 300w, https://machinekoder.com/wp-content/uploads/2016/11/machinetalk_terms2.svg-768x539.png 768w, https://machinekoder.com/wp-content/uploads/2016/11/machinetalk_terms2.svg-360x253.png 360w" width="640"/></a></p>
+<p>Machinetalk services consist of service consumer and service provider. Service providers announce themselves over the decentralized service discovery where a service browser can find them. Matching services connect to each other using a channel, which is a network connection using a defined Machinetalk protocol.</p>
+<p>Machinetalk components work with one or multiple services. Services usually provide functionality that is useful for more than one particular component. For example, the <em>halrcmd</em> service provides methods to access HAL Remote components and also functions to manipulate other elements of an HAL configuration.</p>
+<p>The next table illustrates the correlation between services and components. As can be seen, not every component uses multiple services.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Services</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HAL Remote Component</td>
+<td>halrcomp, halrcmd</td>
+<td>HAL Remote component interface.</td>
+</tr>
+<tr>
+<td>Application Launcher</td>
+<td>launcher, launchercmd</td>
+<td>Launching and monitoring Machinekit instances.</td>
+</tr>
+<tr>
+<td>Application Config</td>
+<td>config</td>
+<td>Deploying user interfaces and configurations.</td>
+</tr>
+<tr>
+<td>Application Command</td>
+<td>command</td>
+<td>Executing machine commands.</td>
+</tr>
+<tr>
+<td>Application Status</td>
+<td>status</td>
+<td>Monitoring the machine status.</td>
+</tr>
+<tr>
+<td>Application Error</td>
+<td>error</td>
+<td>Providing machine error messages.</td>
+</tr>
+<tr>
+<td>Application Log</td>
+<td>log</td>
+<td>Providing Machinekit log information.</td>
+</tr>
+<tr>
+<td>Preview</td>
+<td>preview, previewcmd</td>
+<td>Remote preview interface.</td>
+</tr>
+</tbody>
+</table>
+<p>Presented in the following table is an overview of the Machinetalk services currently implemented as part of the Machinekit project. A service name uniquely identifies each service. Furthermore, the underlying ZeroMQ pattern is clearly defined by the channel protocol. Listed in the table is also the application inside the Machinekit project that implements the service.</p>
+<table>
+<thead>
+<tr>
+<th>Service Name</th>
+<th>ZeroMQ Pattern</th>
+<th>Implemented by</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>halrcmd</td>
+<td>ROUTER-DEALER</td>
+<td>Haltalk</td>
+<td>HAL remote API</td>
+</tr>
+<tr>
+<td>halrcomp</td>
+<td>XPUB-SUB</td>
+<td>Haltalk</td>
+<td>HAL Remote component updates.</td>
+</tr>
+<tr>
+<td>log</td>
+<td>PUB-SUB</td>
+<td>msgd</td>
+<td>Publishing Machinekit log messages.</td>
+</tr>
+<tr>
+<td>launcher</td>
+<td>XPUB-SUB</td>
+<td>mklauncher</td>
+<td>Machinekit launcher configuration.</td>
+</tr>
+<tr>
+<td>launchercmd</td>
+<td>ROUTER-DEALER</td>
+<td>mklauncher</td>
+<td>Starting and stopping Machinekit instances.</td>
+</tr>
+<tr>
+<td>config</td>
+<td>ROUTER-DEALER</td>
+<td>configserver</td>
+<td>Deploying user interfaces and configurations.</td>
+</tr>
+<tr>
+<td>status</td>
+<td>XPUB-SUB</td>
+<td>mkwrapper</td>
+<td>Machine status updates.</td>
+</tr>
+<tr>
+<td>command</td>
+<td>ROUTER-DEALER</td>
+<td>mkwrapper</td>
+<td>Executing machine commands.</td>
+</tr>
+<tr>
+<td>error</td>
+<td>PUB-SUB</td>
+<td>mkwrapper</td>
+<td>Publishing machine error messages.</td>
+</tr>
+<tr>
+<td>file</td>
+<td>FTP</td>
+<td>mkwrapper</td>
+<td>Remote access to GCode program files.</td>
+</tr>
+<tr>
+<td>previewcmd</td>
+<td>ROTUER-DEALER</td>
+<td>previewmodule</td>
+<td>Starting and stopping the remote preview interpreter.</td>
+</tr>
+<tr>
+<td>preview</td>
+<td>PUB-SUB</td>
+<td>previewmodule</td>
+<td>Remote preview interpreter results.</td>
+</tr>
+</tbody>
+</table>
+<h2>Coming Up</h2>
+<p>In this blog, post we learned about the building blocks of Machinetalk: ZeroMQ, Protobuf, and mDNS/DNS-SD.</p>
+<p>Furthermore, we examined the combination of these technologies to build the Machinetalk middleware.</p>
+<p>In the next blog post of this series, I'm going to present the Machinetalk communication in more detail using HAL remote as an example.</p>
+<p>I'm happy about all your feedback and comments. Particularly on this topic, it would be great if you post your concerns or any design problems you detected.</p>
+<p>Your,<br/>
+Machine Koder</p>

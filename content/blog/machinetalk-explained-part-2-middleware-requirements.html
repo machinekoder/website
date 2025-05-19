@@ -1,0 +1,120 @@
+<!--
+{
+  "title": "Machinetalk explained Part 2: Middleware Requirements",
+  "date": "2016-11-20T15:26:34",
+  "slug": "machinetalk-explained-part-2-middleware-requirements",
+  "original_url": "https://machinekoder.com/machinetalk-explained-part-2-middleware-requirements/",
+  "featured_image": ""
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">6</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is a continuation of my <em>Machinetalk explained</em> series describing the concepts and ideas behind the Machinetalk middleware.</p>
+<p>This part is about the requirements of the Machinetalk middleware and their fulfillment through the used technologies.</p>
+<p>To understand the concepts outlined in this article I recommend you first to read <strong><a href="https://machinekoder.com/machinetalk-explained-part-1-introduction/">Part 1: Introduction</a></strong> before continuing reading this article.</p>
+<p>If you are more interested in the technical details behind Machinetalk you can skip ahead to <strong><a href="https://machinekoder.com/machinetalk-explained-part-3-technologies/">Part 3: Technologies</a></strong>.</p>
+<h2>Machinetalk Requirements</h2>
+<p>The requirements of Machinetalk provide interesting information to the background of Machinetalk.</p>
+<p>The requirements primarily derive from the limitations discovered during the utilization of the NML middleware formerly used in Machinekit. In this place, I have to thank Michael Haberler for the original write-up of these requirements in the LinuxCNC mailing list.</p>
+<p>However, if you are interested in the use of Machinetalk outside of Machinekit, you will very likely find common patterns which apply to your project as well.</p>
+<p>Additionally, each listed requirement also includes the fulfillment in Machinetalk.</p>
+<h3>Common requirements</h3>
+<p>The common requirements apply to all parts of Machinetalk.</p>
+<ul>
+<li><strong>Language Neutrality</strong>
+<p><em>The middleware shall have language bindings for at least C, C++ and Python. Ideally, the middleware shall be completely language neutral.</em></p>
+<p>All libraries and technologies used in the Machinetalk middleware are language neutral. Additionally, <a href="https://github.com/machinekoder/machientalk-gsl">Machinetalk-GSL</a> provides a platform independent way of implementing language bindings.</p>
+</li>
+<li>
+<p><strong>Fitness for Real-Time Environment</strong></p>
+<p><em>The middleware shall run on all supported real-time Linux flavors. However, execution of the transport messaging stack within real-time threads is not required. Messages will are passed from user space to real-time components using the ring buffer API of the HAL. It is required that serialized messages are interpretable in real-time threads of any flavor.</em></p>
+<p>Machinetalk is not a jack of all trades device. Instead, it clearly defines its real-time limitations.</p>
+<p>All Machinetalk dependencies are running on the supported real-time Linux kernels. ZeroMQ and the service discovery libraries are not usable within the real-time threads. However, Protobuf serialized messages passed to real-time threads are decodable using the plain C Protobuf implementation <a href="https://github.com/nanopb/nanopb">nanopb</a>.</p>
+<p>The middleware does not require real-time capabilities since HAL processes all real-time tasks in Machinekit.</p>
+<p>Applications which require hard real-time communication between two devices shall use a real-time capable Fieldbus instead.</p>
+</li>
+<li>
+<p><strong>Transparent Message Passing</strong></p>
+<p><em>Intermediary components shall not be required to understand message contents beyond what is required by the semantics of involved components.</em></p>
+<p>ZeroMQ supports transparent message passing. Transparent message passing means that ZeroMQ does not need to understand the contents of a message to forward it.</p>
+<p>Furthermore, all Machinetalk serializes all messages using a union container message, including a Machinetalk type field. Using this type field, Machinetalk can distinguish between different message types without processing the rest of the message.</p>
+</li>
+<li>
+<p><strong>Freedom of Arbitrary Limits</strong></p>
+<p><em>Message encoding, as well as message transport, shall not constrain the use of the middleware by setting hard limits, for example, to message size.</em></p>
+<p>Neither Protobuf nor ZeroMQ introduces any arbitrary limits.</p>
+<p>The maximum size of Protobuf encoded messages can be set at compile time.</p>
+<p>ZeroMQ does not limit message the size at all. The only constraint is the memory size on the application computer.</p>
+</li>
+<li>
+<p><strong>Based on Widely Adopted Solutions</strong></p>
+<p><em>The middleware shall only use libraries, standards, and tools, that already have been widely adopted by the open source community and industry to keep long-term maintenance and support costs low.</em></p>
+<p>ZeroMQ is one of the market leaders in messaging middleware solutions [zotpress items="JSVMV3UC" style="IEEE"]. Protobuf is used in many Google products and widely adopted by the open source community. DNS-SD over mDNS is an Internet Engineering Task Force (IETF) standard [zotpress items="JSVMV3UC,UJIB3NH5" style="IEEE"] and is used in many products such as network printers and media streaming devices.</p>
+</li>
+</ul>
+<h3>Requirements of the Messaging Stack</h3>
+<p>The following requirements apply to the messaging stack of the middleware.</p>
+<ul>
+<li><strong>Blocking and Non-Blocking Message Handling</strong>
+<p><em>The transport library shall be able to send and receive messages in a blocking as well as a non-blocking fashion without resorting to cyclically polling for new messages to be available.</em></p>
+<p>ZeroMQ supports blocking and non-blocking message handling either by including it into an event loop or by using file descriptors.</p>
+</li>
+<li>
+<p><strong>Start-up sequence</strong></p>
+<p><em>The middleware shall only use libraries, standards, and tools, that already have been widely adopted by the open source community and industry to keep long-term maintenance and support costs low.</em></p>
+<p>ZeroMQ supports any start-up sequence. However, depending on the used network pattern messages might either be queued or dropped if no remote peer is available.</p>
+</li>
+<li>
+<p><strong>Idempotent Connect and Reconnect</strong></p>
+<p><em>Components shall be able to connect and reconnect to a running system without requiring a full restart of the real-time stack. This requirement supposes that the transport stack provides measures to detect disconnects and connects to nodes to allow state synchronization of components if necessary.</em></p>
+<p>ZeroMQ does partially support idempotent connect and reconnect. It automatically handles reconnects of sockets However, ZeroMQ does not provide measures to detect, disconnects and reconnects of peers. Therefore, Machinetalk uses an extra heartbeat and connection state detection mechanism.</p>
+</li>
+<li>
+<p><strong>Decentralized Messaging</strong></p>
+<p><em>The messaging stack shall not require a broker for communication. The messaging stack shall be able to operate completely decentralized and using a peer-to-peer pattern.</em></p>
+<p>ZeroMQ as a messaging library does support different messaging patterns. ZeroMQ does not need a broker for messaging, but if necessary building a broker is possible. Moreover, ZeroMQ supports one-to-one, one-to-many and many-to-many communication. Furthermore, ZeroMQ supports forwarding and routing of messages.</p>
+</li>
+<li>
+<p><strong>Minimal Configuration Requirements</strong></p>
+<p><em>A minimal or no configuration effort shall be required to use the messaging transport. Automatic detection of matching peers is desirable.</em></p>
+<p>ZeroMQ uses an API similar to POSIX sockets. To connect to a remote peer, only a service Uniform Resource Identifier (URI) is required. Machinetalk services additionally need the service type to detect matching peers using the DNS-SD over mDNS service discovery mechanism. The Machinekit UUID serves as a unique identifier for a Machinekit instance.</p>
+</li>
+<li>
+<p><strong>Authentification and Encryption</strong></p>
+<p><em>The messaging transport shall support secure authentication and encryption.</em></p>
+<p>ZeroMQ does support authentication and encryption using <a href="http://curvezmq.org/">CurveZMQ</a>.</p>
+<p>However, Machinetalk currently does not support CurveZMQ. The implementation is scheduled for a later release.</p>
+</li>
+</ul>
+<h3>Requirements for Message Serialization</h3>
+<p>The following requirements are related to the message serialization part of the Machinetalk middleware.</p>
+<ul>
+<li><strong>Interface Definition Language Based Encoding</strong>
+<p><em>The message serialization library shall use an Interface Definition Language (IDL) for describing the message structure. It shall be possible to access and manipulate messages in any supported programming language without resorting to manual coding.</em></p>
+<p>Protobuf uses <a href="https://developers.google.com/protocol-buffers/docs/proto">its own IDL</a> for describing messages. Based on .proto IDL files the Protobuf compiler generates native programming language classes for Java, C ++ and Python. Third-party implementations provide support for additional languages.</p>
+</li>
+<li>
+<p><strong>Message Introspection</strong></p>
+<p><em>All required language bindings shall support message introspection. Message introspection allows an application to analyze the type and properties of messages at run-time. This feature decreases the cost of implementing functions to handle new and unknown messages.</em></p>
+<p>Protobuf does only partially support introspection. Protobuf encoded messages are per default not self-descriptive. Therefore, components using a particular Protobuf message need a local copy of the message definition to decode and encode the message correctly. To support introspection with Protobuf, Machinetalk uses a single top level union container message shared by all Machinetalk messages. Therefore, components can decode any Machinetalk message, providing they have the Machinetalk message descriptions. This feature is for example used by the Webtalk broker.</p>
+</li>
+<li>
+<p><strong>Versioning Support</strong></p>
+<p><em>The serialization library shall support versioning of messages to allow backward compatibility to older messages. No recompilation of all associated components shall be necessary if a message definition changes. Unsupported message content shall automatically be skipped.</em></p>
+<p>Protobuf achieves support for backwards-compatibility of messages by numbering all message fields. The Protobuf decoder ignores fields unknown by old components. In case an old message is received by a component which has a new message definition, default values are used to complete all new message fields. To fully achieve backward compatibility, some rules described in “Thrift: The Missing Guide” [zotpress items="AU4R25X5" style="IEEE"] need to be followed.</p>
+</li>
+<li>
+<p><strong>Architecture Independence</strong></p>
+<p><em>The serialization and message format shall be completely architecture independent. The serialization library shall automatically handle byte order and floating point representation without manual coding.</em></p>
+<p>Protobuf supports a set of data types independent of byte order and representation. Furthermore, the generated Protobuf classes handle serialization and deserialization in a platform and architecture independent way.</p>
+</li>
+<li>
+<p><strong>Web Browser Support</strong></p>
+<p><em>The serialization format shall be suitable to be used in combination with web technologies. Automatic conversion to web formats such as JSON shall be possible. No manual translation of messages shall be required. A message serialization format capable of introspection does automatically fulfill this requirement.</em></p>
+<p>Webtalk bridges the ZeroMQ sockets to WebSockets and uses the introspection support of Protobuf to convert messages to the JSON format. As an alternative, the <a href="https://github.com/machinekoder/webvcp">WebVCP</a> uses <a href="https://github.com/dcodeIO/ProtoBuf.js/">Protobuf.js</a> for serializing directly in the web browser.</p>
+</li>
+</ul>
+<h2>Coming up</h2>
+<p>Since this blog post became very long, I decided to dedicate another post solely to the technologies used in Machinetalk. So the next article in this series will be about the technologies employed in Machinetalk, namely <a href="http://zeromq.org/">ZeroMQ</a>, <a href="https://developers.google.com/protocol-buffers/">Protobuf</a> and <a href="http://www.dns-sd.org/">DNS-SD over mDNS</a>.</p>
+<p>The fourth blog article will be about HAL remote and the last blog post will be about modeling and code generation for the Machinetalk language bindings.</p>
+<p>I would very much appreciate any feedback and comments.</p>
+<p>Your<br>
+Machine Koder</br></p>

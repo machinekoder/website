@@ -1,0 +1,57 @@
+<!--
+{
+  "title": "Animating Industrial Robots with Blender",
+  "date": "2019-01-28T11:14:04",
+  "slug": "animating-industrial-robots-with-blender",
+  "original_url": "https://machinekoder.com/animating-industrial-robots-with-blender/",
+  "featured_image": "/static/blog_images/animating-industrial-robots-with-blender/rendered.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">3</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this article, you will learn about the opportunities of using Blender to animate industrial robots.</p>
+<p>Blender is an open source 3D animations software, which is used by 3D artists all over the world to create 3D art and cinematics scene, including <a href="https://www.youtube.com/watch?v=UpcKPJTmqSI">blockbuster movies</a>.</p>
+<p>A couple of weeks ago, someone mentioned to me that <a href="https://www.blender.org/">Blender 2.8</a> will be a revolutionary release, fixing one of the most significant problems the OSS software had, the user interface. Moreover, everything should move to a node-based workflow (everything nodes), and the new render engine EEVEE renders photorealistic scenes in real-time.</p>
+<p>Since I had some spare time, I took the opportunity to learn the basics of Blender and to test-drive its applicability for animating industrial robots.</p>
+<p><iframe allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="" frameborder="0" height="315" loading="lazy" src="https://www.youtube.com/embed/bW_CAb-tplE" width="560"></iframe></p>
+<p><iframe allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="" frameborder="0" height="315" loading="lazy" src="https://www.youtube.com/embed/sTaq14EmESM" width="560"></iframe></p>
+<h2>Rigging and Inverse Kinematics</h2>
+<p>The process of adding bones to an object or model is called rigging. Regarding of 3D animation software, a bone is essentially what we call link in robotics.</p>
+<p>Unfortunately, there aren't any good tutorials on rigging robot arms in Blender yet. However, I managed to rig my 6-DOF Borunte robot arm after understanding the <a href="https://www.youtube.com/watch?v=eF4CuIX40XE">basics of rigging</a>.</p>
+<p>After rigging, we have two options to animate a robot arm:</p>
+<ul>
+<li>We can use forward kinematics (FK) move the bone / joint positions.</li>
+<li>We can use inverse kinematics (IK) to let the IK solver figure out the bone / joint positions.</li>
+</ul>
+<p>For animating robots, we usually want to use an IK with the tool center point as a target.</p>
+<p>Blender 2.8 comes with two IK solvers:</p>
+<ul>
+<li>Standard IK Solver</li>
+<li>iTaSC IK Solver</li>
+</ul>
+<p>For our application, the <a href="https://wiki.blender.org/wiki/Source/Animation/IK">iTaSC IK solver</a> is the better choice, as it is designed for robotic applications.</p>
+<p>Unfortunately, I haven't found a solution for limiting the joint velocity and acceleration. But I'm very sure that it is possible to solve this problem with better understanding of iTaSC.</p>
+<div class="wp-caption aligncenter" id="attachment_531" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/bones.png"><img alt="Robot armature in Blender" aria-describedby="caption-attachment-531" class="size-large wp-image-531" decoding="async" height="366" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/animating-industrial-robots-with-blender/bones-1024x585.png" srcset="https://machinekoder.com/wp-content/uploads/2019/01/bones-1024x585.png 1024w, https://machinekoder.com/wp-content/uploads/2019/01/bones-300x171.png 300w, https://machinekoder.com/wp-content/uploads/2019/01/bones-768x439.png 768w, https://machinekoder.com/wp-content/uploads/2019/01/bones-360x206.png 360w, https://machinekoder.com/wp-content/uploads/2019/01/bones.png 1960w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-531">Robot armature in Blender</p></div>
+<h2>Animation</h2>
+<p>Blender offers multiple ways to animate objects.</p>
+<ul>
+<li>Animation via keyframes and properties.</li>
+<li>Animation along a path.</li>
+<li>Programmatic animation via <a href="https://github.com/JacquesLucke/animation_nodes">Animation Nodes</a>.</li>
+</ul>
+<p>I've tested all three options, and I couldn't find any of them more useful than the other for animating a robot arm.</p>
+<p>For some applications, it's easier to create a path or spline to be followed, for others it might be more useful to drag the robot arm by hand to the target positions. In some cases, it might be helpful to program the movement via Animation Nodes.</p>
+<div class="wp-caption aligncenter" id="attachment_530" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes.png"><img alt="Blender Animation Nodes" aria-describedby="caption-attachment-530" class="size-large wp-image-530" decoding="async" height="170" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/animating-industrial-robots-with-blender/animation_nodes-1024x272.png" srcset="https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes-1024x272.png 1024w, https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes-300x80.png 300w, https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes-768x204.png 768w, https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes-360x96.png 360w, https://machinekoder.com/wp-content/uploads/2019/01/animation_nodes.png 1579w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-530">Blender Animation Nodes</p></div>
+<h2>Applications</h2>
+<p>In my opinion, programming robots via animation are most useful for the entertainment industry. This includes for example film making, animatronics, and show lighting. Autodesk is currently working on a similar project, <a href="https://www.mimicformaya.com/">MIMIC</a>.</p>
+<p>The extendable 3D environment is the biggest advantage of Blender compared to alternatives based on game engines or 3D frameworks. For example, <a href="http://wiki.ros.org/rviz">ROS Rviz</a> or RoboDK are great for visualizing robots, but not so good for a complete simulation of the environment, due to missing design tools.</p>
+<p>However, I can see how Blender could be useful for simulation of machines, robots or even complete factories. Blender also has a <a href="https://blendervr.limsi.fr/doku.php">VR extension</a> which would enable to design, program and simulation full industrial machines before assembly.</p>
+<h2>ROS and Machinekit Integration</h2>
+<p>Of course, animating industrial robots is only useful when we can use the generated trajectories. For this purpose, I created an interface package, which executes the trajectory using <a href="http://wiki.ros.org/ros_control">ros_control</a> and the <a href="https://github.com/zultron/hal_ros_control/">hal_ros_control</a> on the Machinekit based open source robotics controller.</p>
+<p>For other robots, which come with a closed controller, we could use a post-processor to generate native robot code such as KRL.</p>
+<h2>Conclusion</h2>
+<p>Blender could prove useful for animating industrial robots.</p>
+<p>Besides animation, I see huge potential to use Blender for robotics simulation.</p>
+<p>For programming industrial robots, I could see how graph-based programming could be used as an alternative to writing robot source code.</p>
+<p>I'm going to continue to work on this project to find out how it could be applied for applications beyond animation.</p>
+<p>Feel free to contact me if you are interested in learning more.</p>
+<p>Your<br>
+Machine Koder</br></p>

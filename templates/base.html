@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.name }} - {{ config.title }}</title>
+    <style>
+        :root {
+            --primary-color: #00ff9d;
+            --bg-color: #0a0a0a;
+            --text-color: #ffffff;
+            --secondary-bg: #1a1a1a;
+            --accent-color: #00b8ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        header {
+            background: linear-gradient(45deg, var(--secondary-bg), var(--bg-color));
+            padding: 2rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        main {
+            padding: 4rem 0;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 4rem 0;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .social-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .social-links a:hover {
+            color: var(--primary-color);
+        }
+
+        footer {
+            background: var(--secondary-bg);
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        .nav-archive-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .archive-link {
+            color: var(--text-color);
+            text-decoration: none;
+            cursor: pointer;
+            padding: 0 0.5rem;
+            transition: color 0.3s ease;
+        }
+        .archive-link:hover {
+            color: var(--primary-color);
+        }
+        .archive-dropdown-content {
+            display: none;
+            position: absolute;
+            background: var(--secondary-bg);
+            min-width: 180px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            z-index: 10;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            right: 0;
+        }
+        .archive-dropdown-content a {
+            color: var(--text-color);
+            padding: 0.75rem 1.25rem;
+            text-decoration: none;
+            display: block;
+            border-radius: 8px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .archive-dropdown-content a:hover {
+            background: var(--primary-color);
+            color: var(--bg-color);
+        }
+        .nav-archive-dropdown.open .archive-dropdown-content {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">{{ config.name }}</a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/about.html">About</a>
+                    <div class="nav-archive-dropdown" id="archiveDropdown">
+                        <a href="#" class="archive-link" id="archiveToggle" data-toggle="dropdown">Archive ▾</a>
+                        <div class="archive-dropdown-content">
+                            <a href="/results.html">Project Results</a>
+                            <a href="/blog.html">Blog</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="social-links">
+                {% for platform, url in config.social_links.items() %}
+                <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ platform|title }}</a>
+                {% endfor %}
+            </div>
+            <p>&copy; {{ now.year }} {{ config.name }}. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+    // Dropdown toggle for Archive
+    const archiveToggle = document.getElementById('archiveToggle');
+    const archiveDropdown = document.getElementById('archiveDropdown');
+    let closeTimeout = null;
+    if (archiveToggle && archiveDropdown) {
+        archiveToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            archiveDropdown.classList.toggle('open');
+        });
+        // Optional: close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!archiveDropdown.contains(e.target) && archiveDropdown.classList.contains('open')) {
+                archiveDropdown.classList.remove('open');
+            }
+        });
+        // Add mouseenter/mouseleave for delayed close
+        archiveDropdown.addEventListener('mouseenter', function() {
+            if (closeTimeout) {
+                clearTimeout(closeTimeout);
+                closeTimeout = null;
+            }
+        });
+        archiveDropdown.addEventListener('mouseleave', function() {
+            closeTimeout = setTimeout(function() {
+                archiveDropdown.classList.remove('open');
+            }, 1000); // 1000ms delay
+        });
+    }
+    </script>
+</body>
+</html> 

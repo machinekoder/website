@@ -1,0 +1,72 @@
+<!--
+{
+  "title": "Machinekit ROS controlling an industrial robot",
+  "date": "2019-01-04T10:00:05",
+  "slug": "machinekit-ros-industrial-robot",
+  "original_url": "https://machinekoder.com/machinekit-ros-industrial-robot/",
+  "featured_image": "/static/blog_images/machinekit-ros-industrial-robot/20181206_220327.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">5</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p><a href="https://machinekoder.com/machinekit-ros-open-source-robots/">In a previous article</a>, I explained how Machinekit and ROS could be combined to build fully autonomous robots. In this article, I focus on my project of retro-fitting an industrial robot arm with Machinekit and using it with ROS.</p>
+<p>The combination of <a href="https://ros.org">ROS</a> and <a href="https://machinekit.io">Machinekit</a> leverages the low-level real-time motion control capabilities of Machinekit and the high-level robotic tools that ROS provides.</p>
+<p>DISCLAIMER: The robot in the pictures and videos is not a Tormach robot, I just put a Tormach sticker on it.</p>
+<p><iframe allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="" frameborder="0" height="315" loading="lazy" src="https://www.youtube.com/embed/4lo-Uep1cjI" width="560"></iframe></p>
+<h2>The Robot</h2>
+<p>The manipulator I used for my retrofitting project is a <a href="http://en.brotherobot.com/">Borunte</a> BRTIRUS0805A six degrees of freedom (6-DOF) robot arm. It can lift approximately 5kg, so it's great for projects which don't require moving around a high payload.</p>
+<div class="wp-caption aligncenter" id="attachment_510" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/robot1.jpg"><img alt="Borunte BRTIRUS0805A robot" aria-describedby="caption-attachment-510" class="size-large wp-image-510" decoding="async" height="853" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-industrial-robot/robot1-768x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2019/01/robot1-768x1024.jpg 768w, https://machinekoder.com/wp-content/uploads/2019/01/robot1-225x300.jpg 225w, https://machinekoder.com/wp-content/uploads/2019/01/robot1-203x270.jpg 203w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-510">Borunte BRTIRUS0805A robot</p></div>
+<p>It features a closed-loop motor-control system with Innovance I620P AC servo drives and 20-bit serial absolute encoders.</p>
+<p>Initially, it came with a proprietary robot controller. Looking at the main board of the control computer, I could find several <a href="https://www.latticesemi.com/">Lattice</a> FPGAs, which are probably used for step generation and encoder feedback.</p>
+<p>Moreover, it came with a control pendant, with a standard industrial robot control software, so not very intuitive and easy to use.</p>
+<p>Since my goal was to make this robotic arm work with Machinekit and ROS, I threw out the original controller in favor of some <a href="http://www.mesanet.com/">Mesa-Electronics</a> FPGA Anything I/O Ethernet cards. In particular, I used one 7i80 as a control interface, one 7i52 to interface with the differential-pair step-generation inputs and encoder feedback outputs, and two 7i37 Isolated Anything-IO adapters to connect the I/Os of the robot.</p>
+<div class="wp-caption aligncenter" id="attachment_512" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/retrofitting.jpg"><img alt="Retrofitting the Borunte robot" aria-describedby="caption-attachment-512" class="size-large wp-image-512" decoding="async" height="853" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-industrial-robot/retrofitting-768x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2019/01/retrofitting-768x1024.jpg 768w, https://machinekoder.com/wp-content/uploads/2019/01/retrofitting-225x300.jpg 225w, https://machinekoder.com/wp-content/uploads/2019/01/retrofitting-203x270.jpg 203w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-512">Retrofitting the Borunte robot</p></div>
+<h2>The Project Setup</h2>
+<p>My software setup is divided into two parts:</p>
+<ul>
+<li><a href="https://github.com/machinekoder/borunte_hal">The Machinekit HAL configuration for Borunte robot.</a></li>
+<li><a href="https://github.com/machinekoder/borunte_robot">The ROS config interfacing with Machinekit HAL.</a></li>
+</ul>
+<p>The Machinekit HAL configuration works wholly stand-alone and does not require ROS to work. This has the advantage that further applications and projects, such as controlling the robot via Autodesk Mimic or Blender, do not depend on ROS.</p>
+<p>The ROS configuration plugs into the HAL configuration via the <a href="https://github.com/machinekoder/hal_ros_control"><code>hal_ros_control</code> package</a>. <code>hal_ros_control</code> implements a generic <code>ros_controller</code> providing the standard ROS interface on one the ROS side and joint position, velocity or torque outputs on the HAL side. In our case, we use position command feedback, since we use position control mode on the AC servos.</p>
+<h2>The Machinekit HAL Configuration</h2>
+<p>The HAL configuration consists of the following parts:</p>
+<ul>
+<li>position control interface via hostmot2 to the MESA electronics anything I/O card</li>
+<li>lots of I/Os to control the breaks and AC servo signals</li>
+<li>read-out of the absolute encoder position via Modbus</li>
+<li>a safety and software emergency stop chain</li>
+<li>a lamp controller for the robots signal lamp</li>
+<li>a HAL component to control the <a href="https://robotiq.com/products/hand-e-adaptive-robot-gripper">RobotIQ HAND-E</a> via Modbus</li>
+</ul>
+<p>The HAL configuration can be used with the real hardware or in simulation mode to test with any robot attached.</p>
+<div class="wp-caption aligncenter" id="attachment_514" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/robotiq_hand_e.jpg"><img alt="RobotIQ Hand-E Adaptive Gripper" aria-describedby="caption-attachment-514" class="size-large wp-image-514" decoding="async" height="853" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-industrial-robot/robotiq_hand_e-768x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2019/01/robotiq_hand_e-768x1024.jpg 768w, https://machinekoder.com/wp-content/uploads/2019/01/robotiq_hand_e-225x300.jpg 225w, https://machinekoder.com/wp-content/uploads/2019/01/robotiq_hand_e-203x270.jpg 203w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-514">RobotIQ Hand-E Adaptive Gripper</p></div>
+<h2>The ROS Configuration</h2>
+<p>The ROS configuration consists of the MoveIt! configuration for the Borunte robot and a support package.</p>
+<p>The support package contains the robot URDF description as well as configuration files for the <code>ros_controller</code>. Moreover, it defines the connections of the robot I/O pins and <code>hal_hw_interface</code> to the HAL configuration.</p>
+<div class="wp-caption aligncenter" id="attachment_468" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/07/7.png"><img alt="ros_control and HAL" aria-describedby="caption-attachment-468" class="size-large wp-image-468" decoding="async" height="330" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinekit-ros-industrial-robot/7-1024x528.png" srcset="https://machinekoder.com/wp-content/uploads/2018/07/7-1024x528.png 1024w, https://machinekoder.com/wp-content/uploads/2018/07/7-300x155.png 300w, https://machinekoder.com/wp-content/uploads/2018/07/7-768x396.png 768w, https://machinekoder.com/wp-content/uploads/2018/07/7-360x186.png 360w, https://machinekoder.com/wp-content/uploads/2018/07/7.png 1265w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-468">ros_control and HAL</p></div>
+<h2>Host Computer Setup</h2>
+<p>Both, the ROS configuration and the HAL configuration, run on one x86 4-core computer.</p>
+<p>As OS we use Debian Stretch Linux with a <a href="https://rt.wiki.kernel.org/index.php/Main_Page">PREEMPT_RT</a> <a href="https://machinekoder.com/compiling-an-rt-kernel-for-the-up-suared/">kernel</a>.</p>
+<div class="wp-caption aligncenter" id="attachment_515" style="width: 796px"><a href="https://machinekoder.com/wp-content/uploads/2019/01/docker_ros_machinekit.png"><img alt="ROS and Machinekit in Docker" aria-describedby="caption-attachment-515" class="size-full wp-image-515" decoding="async" height="514" loading="lazy" sizes="(max-width: 786px) 100vw, 786px" src="/static/blog_images/machinekit-ros-industrial-robot/docker_ros_machinekit.png" srcset="https://machinekoder.com/wp-content/uploads/2019/01/docker_ros_machinekit.png 786w, https://machinekoder.com/wp-content/uploads/2019/01/docker_ros_machinekit-300x196.png 300w, https://machinekoder.com/wp-content/uploads/2019/01/docker_ros_machinekit-768x502.png 768w, https://machinekoder.com/wp-content/uploads/2019/01/docker_ros_machinekit-360x235.png 360w" width="786"/></a><p class="wp-caption-text" id="caption-attachment-515">ROS and Machinekit in Docker</p></div>
+<h3>RT setup</h3>
+<p>Two cores of the computer are isolated for use with RT processes; the other two cores run userland processes. This ensured by passing the parameter <code>isolcpus=2,3</code> kernel to the modeline.</p>
+<p>Why do we use two cores for RT and not only one? On many consumer-grade CPUs, multiple cores share the same L1 cache. Using only L1 cache for multiple processes means, that processes on one core can affect the latency of processes on another core by using up the L1 cache. Luckily, some consumer-grade and most server CPUs have <a href="https://whatis.techtarget.com/definition/NUMA-non-uniform-memory-access">non-uniform memory access (NUMA)</a>. This means that L1 cache is not shared between all CPUs, but only a CPU-set. For our computer, these CPU sets are 0-1 and 2-3.</p>
+<p>Furthermore, we use the Linux cgroups to partition the executed processes into RT and non-RT groups and to bind to them to a pre-defined CPU set. This ensures that only RT processes are executed on CPUs 2 and 3.</p>
+<p>Using this technique, we get RT jitter consistently below 3us, which is an excellent value.</p>
+<h3>Docker</h3>
+<p>Since the Machinekit and ROS setup is somewhat complicated to install, we decided to use <a href="https://www.docker.com/">Docker</a> to run our application.</p>
+<p>In short, the complete ROS and Machinekit installation moved into a ROS image. This has the considerable advantage that one can develop on a performant development computer and still have the same installation as on the target platform.</p>
+<p>Moreover, building ROS and Machinekit can take some time on a low-performance CPU. Using a Docker-based setup, building the Docker image can be done on a high-performance workstation, cutting the build time in 1/10th.</p>
+<p>An additional advantage of the Docker-based setup is that a specific project version can be matched with a Docker image. This enables testing of new installations or rolling back to older releases without any problems.</p>
+<p>The key points to make this work is PREEMPT_RT and Open GL GUI support in Docker. Both are possible, but I will explain this in another blog post.</p>
+<h2>Conclusion</h2>
+<p>This project proves that it is possible to build fully open source industrial robots with Machnekit and ROS.</p>
+<p>The source code for the project is available on GitHub. Instructions on how to set up a system for ROS and Machinekit will follow.</p>
+<ul>
+<li><a href="https://github.com/machinekoder/borunte_hal">borunte_hal</a> - The Machinekit HAL configuration.</li>
+<li><a href="https://github.com/machinekoder/borunte_robot">borunte_robot</a> - The ROS configuration.</li>
+<li><a href="https://github.com/machinekoder/hal_ros_control">hal_ros_control</a> - ROS controller for Machinekit HAL.</li>
+</ul>
+<p>Moreover, using Docker not only to deploy web applications but also to deploy complete ROS and Machinekit installations proves useful.</p>
+<p>If you have enjoyed reading this article, please leave a comment.</p>
+<p>Your<br>
+Machine Koder</br></p>

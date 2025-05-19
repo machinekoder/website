@@ -1,0 +1,77 @@
+<!--
+{
+  "title": "Machinetalk explained Part 4: HAL Remote",
+  "date": "2016-12-04T18:36:17",
+  "slug": "machinetalk-explained-part-4-hal-remote",
+  "original_url": "https://machinekoder.com/machinetalk-explained-part-4-hal-remote/",
+  "featured_image": "/static/blog_images/machinetalk-explained-part-4-hal-remote/actors.svg.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">6</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is part 4 of the <em>Machinetalk explained</em> series describing the concepts and ideas behind the Machinetalk middleware.</p>
+<p>This part is about <em>HAL remote</em>, the remote interface to the Machinekit hardware abstraction layer HAL. In this blog post, I do not only describe the HAL remote API, but I also explain the communication details of Machinetalk with the HAL remote component as an example.</p>
+<p>If you have not already read the previous articles you can find them here:</p>
+<ul>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-1-introduction/">Part 1: Introduction</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-2-middleware-requirements/">Part 2: Middleware Requirements</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-3-technologies/">Part 3: Technologies</a></strong></li>
+<li><strong><a href="https://machinekoder.com/machinetalk-explained-part-5-code-generation/">Part 5: Code Generation</a></strong></li>
+</ul>
+<h2>HAL Component</h2>
+<p>Before I get into details about HAL remote, it is a good idea to quickly recapture the concepts of HAL.</p>
+<p>Similar to the purpose of electronic components in electronic circuits, HAL components are the building blocks of HAL configurations.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg.png"><img alt="hal_overview-svg" class="aligncenter size-large wp-image-234" decoding="async" height="327" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-4-hal-remote/hal_overview.svg-1024x523.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-1024x523.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-300x153.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-768x392.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/hal_overview.svg-360x184.png 360w" width="640"/></a></p>
+<p>From a software engineering perspective, HAL components are software modules with well-defined inputs and outputs. These software modules can be connected at runtime to form an HAL configuration.</p>
+<p>HAL components are externally referenced by their unique name and internally managed using a unique handle.</p>
+<p>The interfaces of HAL components are called pins. HAL pins have a direction that can be <em>input</em>, <em>output</em> or <em>input/output (IO)</em>. Furthermore, pins have a particular data type that can be one of the HAL data types <em>float</em>, <em>unsigned 32-bit integer (u32)</em>, <em>signed 32-bit integer (s32)</em> or <em>boolean (bit)</em>.</p>
+<p>HAL signals serve as wires to interconnect HAL pins of multiple components. Assigned to an HAL signal can be one output pin as a writer and multiple input pins as readers.</p>
+<p>In some cases, an HAL pin represents a physical pin, for example, of a parallel port interface if the HAL component does implement a hardware driver.</p>
+<h2>HAL Remote Component</h2>
+<p>HAL components are versatile in their application, but they cannot be utilized to implement remote interaction. The reason is that HAL requires agents acting on components to be active at HAL start-up.</p>
+<p>Therefore, HAL Remote components provide an additional interface to HAL allowing the creation of components, unbound during HAL start-up.</p>
+<p>Similar to conventional HAL components, HAL Remote components are created within the HAL context. However, HAL Remote components do not provide update functions that can be executed by HAL threads.</p>
+<p>Thereby, HAL Remote components are equivalent to user space HAL components. The difference is that HAL Remote components have no local thread implementing the functionality. Instead, the <em>rcomp</em> API provides an external interface updating and reading component and pin status.</p>
+<p>Moreover, an HAL Remote component can be bound or unbound depending on the state of the actor implementing the components’ functionality.</p>
+<p>Regarding the HAL configuration, HAL Remote components have two additional parameters. The timer value specifies how often a components' status shall be polled for status updates by an HAL Remote server.</p>
+<p>Additionally, <em>float</em>-type HAL pins of HAL Remote components feature an epsilon value specifying the threshold when a remote client shall be informed about value changes.  Typical use cases for HAL Remote components include remote user interfaces and syncing of multiple HAL<br>
+instances.</br></p>
+<h2>HAL Remote Protocol</h2>
+<p>The HAL Remote protocol uses two Machinetalk services: <em>halrcmd</em> and <em>halrcomp</em>. The <em>Haltalk</em> daemon provides the implementation of these services.</p>
+<h2>Haltalk</h2>
+<p>Haltalk is a user space application using the HAL and HAL Remote component APIs. The software operates on a single HAL session and provides Machinetalk services for as connection points for clients.</p>
+<p>Moreover, the Haltalk server application itself has no knowledge about HAL objects. Instead, it provides a generic Machinetalk API to the outside.</p>
+<p>Haltalk supports any number of HAL Remote components and several actors acting on them in parallel.</p>
+<p>Depicted in the diagram below is an overview of HAL Remote components and the role of Haltalk. The <em>halrcomp</em> service provides an interface for output pins of HAL Remote components whereas the <em>halrcmd</em> service presents an interface for input pins.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/actors.svg.png"><img alt="actors-svg" class="aligncenter size-large wp-image-233" decoding="async" height="239" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-4-hal-remote/actors.svg-1024x383.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/actors.svg-1024x383.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/actors.svg-300x112.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/actors.svg-768x287.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/actors.svg-360x135.png 360w" width="640"/></a></p>
+<h2>Halrcomp Service</h2>
+<p>The halrcomp service implemented by Haltalk is stateless except the transition of HAL Remote components from unbound to bound state and vice versa. This property is important since Haltalk does not keep track of connected clients or sessions.</p>
+<p>To enable high scalability for message transport to multiple clients the service uses publish-subscribe messaging. Although publish-subscribe messaging is in general unidirectional, using ZeroMQ’s <em>XPUB</em> socket on top of the TCP/IP protocol, the server receives notifications about clients subscribing and unsubscribing to topics. The halrcomp service uses this feature to bind and unbind HAL Remote components utilizing the <em>hal_aquire</em> and <em>hal_release</em> functions of the HAL rcomp API.</p>
+<p>The Haltalk service uses the publish-subscribe to inform subscribers about status updates once Haltalk binds an HAL Remote component.</p>
+<p>ZeroMQ topic names represent the name of HAL Remote components. Whenever a new subscriber subscribes to a topic, the Haltalk service publishes an <em>MT_HALRCOMP_FULL_UPDATE</em> message containing the most recent state of the HAL Remote component matching the topic name.</p>
+<p>Haltalk sends an <em>MT_HALRCOMP_ERROR</em> message on the channel when a subscriber tries to subscribe to an HAL Remote component that does not exist. Moreover, subscribers are eventually informed about pin value or component state changes with an <em>MT_INCREMENTAL_UPDATE</em> message. Additionally, periodic MT_PING messages allow subscribers to monitor the liveness of an open connection.</p>
+<h2>Halrcmd Service</h2>
+<p>The halrcmd service implemented by the Haltalk server is completely stateless and provides a remote API to HAL. In the context of HAL Remote components, this channel is used to bind new component instances and to update output pin values of already bound component instances.</p>
+<p>The halrcmd channel uses the ZeroMQ <em>ROUTER-DEALER</em> pattern closely matching a typical Remote Procedure Call (RPC) or request-reply messaging.</p>
+<p>An <em>MT_HALRCOMP_BIND</em> message begins the HAL Remote component conversation. This message binds an HAL Remote component to an HAL instance. Sent with this message is a description of the local representation of the HAL Remote component.</p>
+<p>If the remote representation of the HAL Remote component matches the local one, an <em>MT_HALRCOMP_BIND_CONFIRM</em> message is returned by the server. The binding process aborts with an <em>MT_HALRCOMP_BIND_REJECT</em> message in case the HAL Remote component descriptions are not matching.</p>
+<p>An optional <em>no_create</em> flag indicates whether a component shall be<br/>
+created or not in case it does not exist in the HAL instance.</p>
+<h2>Message Flow</h2>
+<p>Depicted in the diagram below is the message flow between a Haltalk instance and two clients.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/incremental_updates.svg.png"><img alt="incremental_updates-svg" class="aligncenter size-large wp-image-235" decoding="async" height="338" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-4-hal-remote/incremental_updates.svg-1024x540.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/incremental_updates.svg-1024x540.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/incremental_updates.svg-300x158.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/incremental_updates.svg-768x405.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/incremental_updates.svg-360x190.png 360w" width="640"/></a></p>
+<p>An HAL Remote protocol session starts with the <em>bind</em> dialog. The bind dialog completes with a full update message from the server. The <em>publish-subscribe</em> messaging pattern forwards the full update message to all subscribers. Therefore, clients must handle full update messages not only during the <em>bind</em>.</p>
+<p>Note that the <em>bind</em> dialog can be skipped if the client does not know the structure and pins of a remote component. This is useful to use remote component to sync for example a tool or origins table with variable row count.</p>
+<h2>State Machine</h2>
+<p>We have already seen the message flow of the HAL Remote protocol visualized as swimlanes. Another way to visualize stateful processes is a state machine. Please take a look the state machine diagram below to get an impression of the HAL Remote component client state machine. I will go into more details about the Machinetalk state machine in the next blog post of this series.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_.png"><img alt="remotecomponentbase-dot" class="aligncenter size-large wp-image-237" decoding="async" height="149" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/machinetalk-explained-part-4-hal-remote/remotecomponentbase.dot_-1024x238.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_-1024x238.png 1024w, https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_-300x70.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_-768x178.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_-360x84.png 360w, https://machinekoder.com/wp-content/uploads/2016/12/remotecomponentbase.dot_.png 1920w" width="640"/></a></p>
+<h2>Message Structure</h2>
+<p>A single top level Protobuf message serves as a basis for all Machinetalk Protobuf messages. This message acts as a standard container for de- and encoding all Machinetalk messages. This pattern is also <a href="https://developers.google.com/protocol-buffers/docs/overview">known as union message</a> and the top-level message of Machinetalk is named <em>Container</em>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/12/protobuf_package.svg.png"><img alt="protobuf_package-svg" class="aligncenter size-medium wp-image-236" decoding="async" height="98" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/machinetalk-explained-part-4-hal-remote/protobuf_package.svg-300x98.png" srcset="https://machinekoder.com/wp-content/uploads/2016/12/protobuf_package.svg-300x98.png 300w, https://machinekoder.com/wp-content/uploads/2016/12/protobuf_package.svg-768x252.png 768w, https://machinekoder.com/wp-content/uploads/2016/12/protobuf_package.svg-360x118.png 360w, https://machinekoder.com/wp-content/uploads/2016/12/protobuf_package.svg.png 1012w" width="300"/></a></p>
+<p>The type field is utilized to describe the type of a Machinetalk message. Moreover, the repeated message fields component and pin serve as storage for HAL Remote component data. Depending on the message type different fields of the Protobuf message are used. For example, the Haltalk service uses the <em>no_create</em> field of the <em>Component</em> message only during the binding process.</p>
+<p>Therefore, it makes sense to mark the fields of the Machinetalk Protobuf messages as optional. Marking Protobuf fields as optional also serves backward compatibility with possible future message versions as outlined in <em>“Thrift: The missing guide”</em> [zotpress items="AU4R25X5" style="IEEE"].</p>
+<p>Contrary to the benefits of using a union message, this design decision adds the extra task for developers to match Protobuf message fields with Machinetalk message types.</p>
+<h2>Coming Up</h2>
+<p>In this article, I explained the details about the HAL Remote components and the HAL Remote protocols. If you want to learn more about HAL Remote I encourage you to take a look the Haltalk and QtQuickVcp source code and the <a href="https://github.com/machinekoder/machinetalk-doc/blob/master/halremote/halremoteprotocol.md">generated Machinetalk documentation</a>.</p>
+<p>In the blog post, I will talk about model driven development of the Machinetalk bindings aka. Machinetalk GSL.</p>
+<p>I hope you enjoyed reading this blog post and I encourage you to comment if you  have any ideas or feedback.</p>
+<p>Your<br/>
+Machine Koder</p>

@@ -1,0 +1,92 @@
+<!--
+{
+  "title": "Compiling an RT Kernel for the Up Squared",
+  "date": "2018-09-20T07:10:21",
+  "slug": "compiling-an-rt-kernel-for-the-up-suared",
+  "original_url": "https://machinekoder.com/compiling-an-rt-kernel-for-the-up-suared/",
+  "featured_image": "/static/blog_images/compiling-an-rt-kernel-for-the-up-suared/up2-rt.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">3</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, you will learn how to compile a PREEMPT_RT kernel for the <a href="http://www.up-board.org/upsquared/">Up Squared (Up2)</a> board.</p>
+<p>DISCLAIMER: This article was posted end of 2018. Things have changed since then and I decided against using the Up Squared for my project because I couldn't get the RT latency to a reasonable level with this hardware. Please don't take this article as a step by step guide, but use it as a guide.</p>
+<h2>Up Squared</h2>
+<p>The Up2 is an x86 Intel Apollo Lake-based mini-computer. Features such a quad-core CPU, dual Ethernet, a PCI-Express mini port and a <a href="https://www.raspberrypi.org/">Raspberry Pi</a> compatible pin header make this board very attractive for high-end RT-Linux applications.</p>
+<p>I was looking for a reasonably priced computer which can run <a href="https://ros.org">ROS</a> and <a href="http://machinekit.io">Machinekit</a> decently and still has leftover resources to render a fancy <a href="https://qt.io">Qt/QML</a> GUI and is relatively future-proof in terms of image recognition and machine learning.</p>
+<p>Besides being an interesting x86 platform, there a new <a href="http://www.up-board.org/upkits/up-squared-ai-vision-kit/">AI vision kit</a> being sold as an extension for the Up2, which can become handing when implementing object and image recognition with ROS.</p>
+<p>Someone from the community also <a href="https://www.youtube.com/watch?v=9BO043zMwwY">proved</a> that it is possible to run an external GPU via the Mini PCI-Express port.</p>
+<p>All in all, Up2 seems like an excellent platform for robotics applications with ROS.</p>
+<h2>Ubilinux</h2>
+<p>The Up2 comes with a Linux distribution called <a href="https://wiki.up-community.org/Ubilinux">Ubilinux</a>. Ubilinux is a Debian based distribution supported by <a href="https://emutex.com/">Emutex</a>. It comes with everything pre-installed to use the Raspberry Pi compatible pin headers of the Up2, this includes a kernel driver.</p>
+<p>I decided against using the Ubilinux distribution since the modifications made by Emutex aren't transparent and I prefer to be in control of what my Linux distribution has installed or not.</p>
+<p>The installation of a vanilla Debian Stretch works fine on the Up2. The only shortcoming I noticed, was that the GPIO access requires the Up2 kernel driver.</p>
+<p>Therefore I decided to compile the Up2 kernel with the PREEMPT_RT patch myself.</p>
+<h2>Up2 PREEMPT_RT Kernel</h2>
+<p>Now we come to the quintessence of this article, compiling and installing the <a href="https://wiki.linuxfoundation.org/realtime/start">PREEMPT_RT</a> kernel for the Up2.</p>
+<p>I started with the <a href="https://wiki.up-community.org/Compile_ubilinux_kernel_from_source">Up Board kernel build guide</a> and adapted it for Debian Stretch and the PREEMPT_RT patch and modifications to the kernel configuration.</p>
+<p>First of all, install the build dependencies.</p>
+<pre><code class="bash">sudo apt-get update
+sudo apt-get install -y git build-essential kernel-package libncurses5-dev libssl-dev
+</code></pre>
+<p>Then continue by cloning the <a href="https://github.com/emutex/ubilinux-kernel">Ubilinux Kernel repository</a>.</p>
+<pre><code class="bash">cd
+mkdir repos
+cd repos
+git clone --depth=1 https://github.com/emutex/ubilinux-kernel.git -b upboard-4.9 linux-upboard
+</code></pre>
+<p>Next, download and apply the PREEMPT_RT kernel patches. To find out the kernel version of your kernel source tree run <code>make kernelversion</code>. In my case it was <code>4.9.45</code>.</p>
+<p>Based on this version number, you need to look for a matching PREEMPT_RT patch in the <a href="https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/4.9/older/">kernel archives</a>.</p>
+<pre><code class="bash">cd linux-upboard
+wget https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/4.9/older/patch-4.9.47-rt37.patch.xz
+unxz -cd patch-4.9.47-rt37.patch.xz | patch -p1
+</code></pre>
+<p>Then you can create the default kernel configuration:</p>
+<pre><code class="bash">make upboard_defconfig
+</code></pre>
+<p>The kernel now needs to be configured to use the RT scheduler. Either use the kernel menuconfig wizard using <code>make menuconfig</code> or use your preferred text editor to edit the <code>.config</code> file directly.</p>
+<pre><code class="bash">xdg-open .config
+</code></pre>
+<p>You need to set following kernel configuration parameters:</p>
+<pre><code>HIGH_RES_TIMERS=y
+CONFIG_PREEMPT_RT_FULL=y
+CONFIG_HZ_1000=y
+CONFIG_HZ=1000
+CONFIG_OF=n
+</code></pre>
+<p>I encourage you also to disable the CPU idle state and to set the default CPU frequency governor to <em>performance</em>.</p>
+<pre><code>CONFIG_CPU_IDLE=n
+CONFIG_INTEL_IDLE=n
+CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y
+</code></pre>
+<p>Next, you need to compile the Linux kernel.</p>
+<pre><code class="bash">make -j`nproc` &amp;&amp; make -j`nproc` bindeb-pkg
+</code></pre>
+<p>Before the compilation starts, you might be asked to set additional configuration parameters. It should be safe to use the defaults, but note that debugging features might be enabled which could cause additional latencies.</p>
+<p>After the compilition is complete (which can take several hours), you will find a few debian packages in the parent directory of the <code>linux-upboard</code> directory.</p>
+<pre><code class="bash">$ ls
+linux-4.9.45-rt57-upboard-rt+_4.9.45-rt57-upboard-rt+-3_amd64.changes
+linux-firmware-image-4.9.45-rt57-upboard-rt+_4.9.45-rt57-upboard-rt+-3_amd64.deb
+linux-headers-4.9.45-rt57-upboard-rt+_4.9.45-rt57-upboard-rt+-3_amd64.deb
+linux-image-4.9.45-rt57-upboard-rt+_4.9.45-rt57-upboard-rt+-3_amd64.deb
+linux-libc-dev_4.9.45-rt57-upboard-rt+-3_amd64.deb
+linux-upboard
+</code></pre>
+<p>Install the new kernel package with:</p>
+<pre><code class="bash">sudo dpkg -i linux-*.deb
+</code></pre>
+<p>Restart your system and you should be running a PREEMPT_RT kernel.</p>
+<pre><code class="bash">$ uname -a
+Linux upsquared 4.9.45-rt57-upboard-rt+ #3 SMP PREEMPT RT Fri Sep 14 19:27:04 CEST 2018 x86_64 GNU/Linux
+</code></pre>
+<h2>Tuning RT parameters</h2>
+<p>Unfortunately installing an RT kernel is not enough. For many applications, you still need to tweak the kernel parameters and other properties in order to get the required RT performance.</p>
+<p>I won't cover how to do that in this post. However, I can encourage you to take a look at the <a href="http://linuxrealtime.org/index.php/Improving_the_Real-Time_Properties">"Improving the Real-Time Properties"</a> guide.</p>
+<p>A quick hint at this point. To modify the kernel boot arguments use the following:</p>
+<p>Edit <code>/etc/default/grub</code> and append your kernel options to the <code>GRUB_CMDLINE_LINUX_DEFAULT</code> line an then automatically re-generate the grub.cfg file with:</p>
+<pre><code class="bash">grub-mkconfig -o /boot/grub/grub.cfg
+</code></pre>
+<p>Don't try to modify the grub config by hand.</p>
+<h2>Conclusion</h2>
+<p>In this article, you learned how to compile a PREEMPT_RT kernel for the Up Squared board. The guide also may be helpful for other compiling kernels for other boards as well.</p>
+<p>If you have enjoyed reading this article, please subsribe to stay up to date with my newest blog posts.</p>
+<p>Your<br>
+Machine Koder</br></p>

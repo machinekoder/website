@@ -1,0 +1,125 @@
+<!--
+{
+  "title": "Extending Machineface with HAL Remote to control Smart-Plugs",
+  "date": "2016-09-16T07:00:18",
+  "slug": "extending-machineface-with-hal-remote-to-control-smart-plugs",
+  "original_url": "https://machinekoder.com/extending-machineface-with-hal-remote-to-control-smart-plugs/",
+  "featured_image": "/static/blog_images/extending-machineface-with-hal-remote-to-control-smart-plugs/machineface_smartplug.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">5</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post explains how to extend the Machineface 3D printer UI with a custom UI element that interacts with HAL. For this purpose, this article explains the core concepts of HAL remote.</p>
+<p>The blog post is a continuation of <em><a href="https://machinekoder.com/?p=33">Controlling TP-Link HS100/110 Smart Plugs with Machinekit</a></em>.</p>
+<h2>HAL Remote</h2>
+<p>HAL remote is a remote API for the Machinekit HAL (Hardware Abstraction Layer). HAL bases on reusable assets called components. These components can either be real-time or userland components.</p>
+<p>HAL remote extends this concept by adding HAL remote components. HAL remote components do not have an instance handled by HAL. Instead, they are instantiated via a remote API.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/remote_component.svg"><img alt="remote_component" class="alignnone size-full wp-image-106" decoding="async" src="/static/blog_images/extending-machineface-with-hal-remote-to-control-smart-plugs/remote_component.svg"/></a></p>
+<p>This concept allows mapping HAL remote components into the UI. For example, a HAL pin is represented by a button UI element. When pressing the button in the UI the pin value automatically changes in HAL.</p>
+<p>The API or middleware behind HAL remote is called <em>Machinetalk</em>. It uses following de-facto standard technologies:</p>
+<ul>
+<li><a href="http://zeromq.org/">ZeroMQ</a> for messaging</li>
+<li><a href="https://developers.google.com/protocol-buffers/">Protobuf</a> for message serialization</li>
+<li><a href="https://en.wikipedia.org/wiki/Multicast_DNS">mDNS/DNS-SD</a> for service discovery</li>
+</ul>
+<p>The remote UI for Machinekit <a href="https://github.com/machinekoder/Machineface">Machineface</a> uses <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp</a> library. QtQuickVcp is the Qt/QML language binding for Machinetalk.</p>
+<p>For now, I will not go into more details about Machinetalk.</p>
+<h2>Development setup</h2>
+<p>To extend Machineface, you need a local copy of the Git repository. I recommend you to start by forking the <a href="https://github.com/machinekoder/Machineface">Machineface repository</a> on GitHub.</p>
+<p>Then check out your forked repository locally.</p>
+<pre><code class="bash">git clone https://github.com/yourusername/Machineface.git
+</code></pre>
+<p>For editing the Machineface user interface I prefer using Qt Creator. Qt Creator comes with the <a href="https://www.qt.io/">Qt SDK</a>.</p>
+<p>You do not necessarily need to install the Qt SDK and to build QtQuickVcp. However, it helps when developing QtQuickVcp UIs. For install instructions, please take a look at the <a href="https://github.com/machinekoder/QtQuickVcp#build_and_install">README</a>.</p>
+<p>Additionally, I prefer working with <a href="https://github.com/qtproject/qt-apps-qmllive">qmllive</a>. A live coding environment for QML. This tool automatically reloads the UI source code whenever the file system is modified.</p>
+<p>If you plan to use any other text editor you need to edit the Machineface source code on the Machinekit target device. Furthermore, you need to use <code>configserver</code> to remotely deploy the files to the <a href="https://github.com/machinekoder/MachinekitClient">Machinekit Client</a></p>
+<h2>Adding a remote component to HAL</h2>
+<p>Once we have a working development setup, it is time to modify the HAL configuration. For this purpose, we need to extend the <code>setup_smartplugs</code> function created in the <a href="https://machinekoder.com/?p=33">last blog post</a>.</p>
+<p>Remember that we used a Python HAL configuration. The code that creates the HAL remote component for controlling the smart-plugs looks as follows.</p>
+<pre><code class="python">rcomp = hal.RemoteComponent('smartplug-control', timer=100)
+rcomp.newpin('power-enable', hal.HAL_BIT, hal.HAL_IO)
+rcomp.newpin('fan-enable', hal.HAL_BIT, hal.HAL_IO)
+rcomp.newpin('power', hal.HAL_FLOAT, hal.HAL_IN)
+rcomp.newpin('energy', hal.HAL_FLOAT, hal.HAL_IN)
+rcomp.ready()
+</code></pre>
+<p>The first line creates a new HAL remote component and assigns it the <code>rcomp</code> variable.</p>
+<p>The first argument <code>'smartplug-control'</code> of the Python class initializer is the name of the component.</p>
+<p>The <code>timer</code> argument specifies how often the remote component values are sent to the remote clients.</p>
+<p>In the following lines, we add new HAL pins to the component.</p>
+<ul>
+<li><em>power-enable</em> - to toggle the power plug</li>
+<li><em>fan-enable</em> - to toggle the fan plug</li>
+<li><em>power</em> - for monitoring the power consumption</li>
+<li><em>energy</em> - for monitoring the energy consumption</li>
+</ul>
+<p>The <code>ready</code> function call tells the <em>haltalk</em> HAL remote service provider, to release the remote component.</p>
+<p>Once created, it is possible to use the HAL remote component like any other HAL component.<br>
+For more details, please take a look at the complete <a href="https://github.com/machinekoder/UNI-PRINT-3D/blob/home/hardware.py#L223">source code on GitHub</a>.</br></p>
+<h2>Adding a HAL remote component to Machineface</h2>
+<p>Next, it is time to add new UI elements and a new HAL remote component to Machineface.</p>
+<p>The <code>./Machineface</code> directory inside the Machineface repository contains all UI components of the Machineface UI.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/machineface_source_tree.png"><img alt="machineface_source_tree" class="alignnone size-medium wp-image-105" decoding="async" height="300" loading="lazy" sizes="(max-width: 152px) 100vw, 152px" src="/static/blog_images/extending-machineface-with-hal-remote-to-control-smart-plugs/machineface_source_tree-152x300.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/machineface_source_tree-152x300.png 152w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_source_tree-517x1024.png 517w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_source_tree.png 632w" width="152"/></a></p>
+<p>QML is organized into <code>.qml</code> files. Each file contains one root component with the name of the file. For example, <code>LightControl.qml</code> contains the <code>LightControl</code> QML component.</p>
+<p>The <code>DisplayPanel</code> component contains the display panel on the right side of Machineface. An ideal place to add a new control element.</p>
+<p>Moreover, the <code>DisplayPanel</code> already contains some HAL remote component based controls, namely:</p>
+<ul>
+<li><code>FanControl</code></li>
+<li><code>TemperatureControl</code></li>
+<li><code>LightControl</code></li>
+</ul>
+<p>These components are a perfect starting point for adding new control elements to Machineface. I encourage you to take a look at these components if you interested in learning how to add new controls to Machineface.</p>
+<p>Based on these components I added a new QML file called <code>SmartplugControl.qml</code>. I will now go over the most important parts of the code. I recommend you to take a look at the complete <a href="https://github.com/machinekoder/Machineface/blob/home/Machineface/SmartplugControl.qml">source code on GitHub</a>.</p>
+<p>First of all, we need a HAL remote component.</p>
+<pre><code class="qml">import Machinekit.HalRemote 1.0
+
+...
+
+HalRemoteComponent {
+    id: halRemoteComponent
+    halrcmdUri: halrcmdService.uri
+    halrcompUri: halrcompService.uri
+    ready: (halrcmdService.ready &amp;&amp; halrcompService.ready) || connected
+    name: root.componentName
+    containerItem: container
+    create: false
+    onErrorStringChanged: console.log(componentName + " " + errorString)
+    onConnectedChanged: root.wasConnected = true
+}
+</code></pre>
+<p>The first line imports the <em>HalRemote</em> QtQuick module.</p>
+<p>The <em>HalRemoteComponent</em> represents the HAL remote component in QtQuickVcp. The <code>halrcmdUri</code> and <code>halrcompUri</code> properties specify the ZeroMQ service URIs. In this case, the component references to properties in a parent object.</p>
+<p>When both services are ready the <code>ready</code> property is set to <code>true</code>. The component tried to connect to a remote Machinekit instance.</p>
+<p>Also important is the <code>name</code> property, since it has to match the name of the remote component in HAL.</p>
+<p>The <code>create</code> property tells QtQuickVcp to throw an error if no remote instance of the component exists.</p>
+<p>You may wonder how the <em>HalRemoteComponent</em> matches pins to UI controls such as buttons. The QML item passed to the <code>containerItem</code> property is searched for <code>HalRemote.Controls</code> when the component becomes <code>ready</code>.</p>
+<p>In the <code>container</code> item we can find following controls:</p>
+<pre><code class="qml">HalSwitch {
+    name: "power-enable"
+    halPin.direction: HalPin.IO
+}
+</code></pre>
+<p>and</p>
+<pre><code class="qml">TextField {
+    Layout.preferredWidth: root.width * 0.4
+    readOnly: true
+    text: energyPin.value.toFixed(2) + "kWh"
+
+    HalPin {
+        id: energyPin
+        name: "energy"
+        type: HalPin.Float
+        direction: HalPin.In
+    }
+}
+</code></pre>
+<p>The <em>HalPin</em> item is a non-visible QML item representing a single HAL pin. <code>name</code>, <code>type</code> and <code>direction</code> have the same meaning as for regular HAL pins. Note that direction <code>In</code> means that a signal can drive this HAL pin.</p>
+<p>The <code>value</code> property of the <code>energyPin</code> is then used as a source for the <code>text</code> property of the <em>TextField</em>.</p>
+<p>The <em>HalSwitch</em> component is a combination of the <em>Switch</em> UI element and a <em>HalPin</em>. The <code>checked</code> property of the switch binds automatically to the HAL pin with the name <code>power-enable</code>.</p>
+<p>The resulting control element looks as follows:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/machineface_smartplug1.png"><img alt="machineface_smartplug1" class="alignnone size-medium wp-image-108" decoding="async" height="161" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/extending-machineface-with-hal-remote-to-control-smart-plugs/machineface_smartplug1-300x161.png" srcset="https://machinekoder.com/wp-content/uploads/2016/09/machineface_smartplug1-300x161.png 300w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_smartplug1-360x194.png 360w, https://machinekoder.com/wp-content/uploads/2016/09/machineface_smartplug1.png 535w" width="300"/></a></p>
+<p>I cannot go into full details of how to implement a QtQuick/QML component here. If you are interested in this topic, I recommend you starting with the <a href="http://doc.qt.io/qt-5/qml-tutorial.html">QML tutorial</a>.</p>
+<h2>Summary</h2>
+<p>Concluding, this blog article explains how to extend Machineface with a new UI control. Furthermore, it explains some concepts of HAL remote and <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp</a>.</p>
+<p>The full source code of the modified <a href="https://github.com/machinekoder/Machineface/tree/home">Machineface</a> and <a href="https://github.com/machinekoder/UNI-PRINT-3D/tree/home">UNI-PRINT-3D configuration</a> is available in the <code>home</code> branch of the repositories.</p>
+<p>I hope this blog post has been useful for you. If you have questions about HAL remote or want to give feedback, please comment on this post.</p>
+<p>Your,<br/>
+Machine Koder</p>

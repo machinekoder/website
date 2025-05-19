@@ -1,0 +1,53 @@
+<!--
+{
+  "title": "Working on the First Open Source Hardware Parallel Port Cape for the BeagleBone",
+  "date": "2018-03-04T18:15:22",
+  "slug": "working-first-open-source-hardware-parallel-port-cape-beaglebone",
+  "original_url": "https://machinekoder.com/working-first-open-source-hardware-parallel-port-cape-beaglebone/",
+  "featured_image": "/static/blog_images/working-first-open-source-hardware-parallel-port-cape-beaglebone/IMG_20180301_230000_537.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">3</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, I will present you my latest project: The first open source hardware (OSH) parallel port cape for the <a href="http://beagleboard.org/bone">BeagleBone</a>.</p>
+<p>The goal of this project is to make Machinekit easier to use for a broader audience and to provide a turnkey control solution for CNC machines.</p>
+<p>The Operator GUI will run on Windows, Linux, Mac, and Android.</p>
+<h2>New office and equipment</h2>
+<p>Recently, I re-discovered my interest in creating electronics. Since I studied electronic engineering I have the background to design and develop electronics, but in the recent years,  I have been more involved in writing software.</p>
+<p>A major factor in my rediscovery of electronics engineering is definitely my recent move into a new co-working space, the <a href="https://factoryhub.at/">Factory Hub</a> in Vienna. The hub is primarily targeting startups and entrepreneurs working with hardware.</p>
+<p>Equipment to get started with electronics engineering is usually expensive when you are starting out, especially if that's not your main profession. However, the Factory Hub provides shared access to all the equipment to prototype and build electronics.</p>
+<p>Moreover, I share space and equipment with the <a href="https://www.apertus.org/axiom">Apertus AXIOM</a> team which further fostered my interest in open source hardware.</p>
+<h2>Uniting Machinekit and Hardware</h2>
+<p>In the last years, multiple people created <a href="http://blog.machinekit.io/p/hardware-capes.html">BeagleBone capes for Machinekit</a>. Some to be used with 3D printers and others to be used to build CNC machines.</p>
+<p>However, what's in my opinion missing is a good turkey or semi-turnkey solution. Pretty much all capes for Machinekti that I have seen so far are either targeted for a specific application (e.g. inside a product) or lack software support at all.</p>
+<p>Therefore, I have the idea of bringing it all together. I have been working on the software side of Machinekit for several years now and I also, have a background in electronics engineering - so why not create something that brings software and hardware together?</p>
+<p>I decided to start by creating something that is generally useful when it comes to Machinekit. A cape that works as an interface for parallel port (DB25) and IDC/HDR26 connectors.</p>
+<p>This cape should also serve as my personal prototyping platform my project of bringing electronics, software, and mechanics together in one easy-to-use package.</p>
+<h2>A first Prototype</h2>
+<p>In the last few weeks, I have been working on the first prototype for this new cape. Including schematic design, sourcing of parts and layouting the PCB.</p>
+<p>Last week I finally received 3 purple PCBs from <a href="https://oshpark.com/">OSH park</a>.</p>
+<div class="wp-caption aligncenter" id="attachment_400" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145.jpg"><img alt="OSH Parallel Port PCBs" aria-describedby="caption-attachment-400" class="size-large wp-image-400" decoding="async" height="640" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/working-first-open-source-hardware-parallel-port-cape-beaglebone/IMG_20180301_145455_145-1024x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145-1024x1024.jpg 1024w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145-150x150.jpg 150w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145-300x300.jpg 300w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145-768x768.jpg 768w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_145455_145-270x270.jpg 270w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-400">OSH Parallel Port PCBs</p></div>
+<p>And on Friday I assembled them for testing.</p>
+<div class="wp-caption aligncenter" id="attachment_401" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385.jpg"><img alt="OSH Parallel Port Cape before assembly" aria-describedby="caption-attachment-401" class="size-large wp-image-401" decoding="async" height="640" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/working-first-open-source-hardware-parallel-port-cape-beaglebone/IMG_20180301_183031_385-1024x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385-1024x1024.jpg 1024w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385-150x150.jpg 150w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385-300x300.jpg 300w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385-768x768.jpg 768w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_183031_385-270x270.jpg 270w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-401">OSH Parallel Port Cape before assembly</p></div>
+<p>As you can see, I decided to use IDC26 connectors on the cape itself, with the option to use IDC26 to DB25 adapters. The idea behind this design is to make panel mounting of the DB25 connectors possible.</p>
+<div class="wp-caption aligncenter" id="attachment_402" style="width: 650px"><a href="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537.jpg"><img alt="OSH Parallel Port Cape assembled" aria-describedby="caption-attachment-402" class="size-large wp-image-402" decoding="async" height="640" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/working-first-open-source-hardware-parallel-port-cape-beaglebone/IMG_20180301_230000_537-1024x1024.jpg" srcset="https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537-1024x1024.jpg 1024w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537-150x150.jpg 150w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537-300x300.jpg 300w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537-768x768.jpg 768w, https://machinekoder.com/wp-content/uploads/2018/03/IMG_20180301_230000_537-270x270.jpg 270w" width="640"/></a><p class="wp-caption-text" id="caption-attachment-402">OSH Parallel Port Cape assembled</p></div>
+<p>As probably every prototype, the design is not perfect at the moment. Especially the placement of some components is suboptimal when it comes to including the PCB inside a housing.</p>
+<p>However, I tested the design and it works driving a small CNC mill.</p>
+<h2>Becoming a Semi-Turnkey Solution</h2>
+<p>The idea of this project is to build a semi-turnkey solution based on Machinekit. The device will ship preinstalled with Machinekit and some example configurations.</p>
+<p>The GUI will be based on <a href="https://github.com/machinekit/QtQuickVcp">QtQuickVcp</a> and run on Windows, Linux, Mac, and Android. The great thing about the BeagleBone<br>
+is that it works plug and play, no need to install anything (except a driver on Windows).</br></p>
+<p>This device should give users a far lower entry barrier for using Machinekit and most importantly it will be ready to be used in other products.</p>
+<h2>Further Steps</h2>
+<p>Before I can start producing an selling the cape, as well as the turkey solution (any ideas for a name?) following things, need to be completed:</p>
+<ul>
+<li>Another iteration of the layout and component placement.</li>
+<li>Finding a suitable housing.</li>
+<li>Creating panels.</li>
+<li>Releasing the design on GitHub.</li>
+</ul>
+<p>And of course, I also need to release my new webstore.</p>
+<h2>Conclusion</h2>
+<p>In this blog post, I outlined my recent work on a new OSH cape for the BeagleBone.</p>
+<p>Moreover, I explained my intentions behind the project and what further steps need to be completed before I can start selling the new hardware.</p>
+<p>I hope you have enjoyed this blog post and please stay tuned to hear more.</p>
+<p>Your</p>
+<p>Machine Koder</p>

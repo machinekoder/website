@@ -1,0 +1,124 @@
+<!--
+{
+  "title": "PyQt vs Qt for Python (PySide2)",
+  "date": "2019-02-19T09:00:47",
+  "slug": "pyqt-vs-qt-for-python-pyside2-pyside",
+  "original_url": "https://machinekoder.com/pyqt-vs-qt-for-python-pyside2-pyside/",
+  "featured_image": "/static/blog_images/pyqt-vs-qt-for-python-pyside2-pyside/pyqt_vs_pyside.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">6</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this article, you will learn the differences between <a href="https://riverbankcomputing.com/software/pyqt/intro">PyQt</a> and <a href="https://wiki.qt.io/Qt_for_Python">Qt for Python PySide2</a> so you can decide which Python Qt binding you want to use.</p>
+<h2>Why two Python Qt bindings?</h2>
+<p>When reading this article, you will probably be confused about why there are two Python bindings for the <a href="https://qt.io">Qt GUI framework</a> and not only one. To understand this phenomenon we have to take a look Qt's history.</p>
+<p>PyQt exists for a long time and is supported by Riverbank Computing Limited, a small (one-person?) consulting firm. Back in the days when Qt was owned by Nokia, Nokia decided to create their own Qt binding PySide. The reason for this is very likely that PyQt is licensed under GPL and a commercial license.</p>
+<p>Unfortunately, Nokia was bought by Microsoft and Qt, which primarily used to develop GUIs for Symbian, was sold to Digia. Since then, PySide was solely supported by the open source community and for the most part, lacked behind PyQt.</p>
+<p>Christian Tismer picked up the work on Qt5 support in PySide2 in 2015 for AutoDesk and created a first merely usable version. In 2016, the project was internally picked up by the Qt Company.</p>
+<p>In 2018, support for PySide2 was officially announced up by the Qt Company, the official company behind Qt. At the end of 2018, the first version of Qt for Python, the new name for PySide2, was released.</p>
+<h2>Differences</h2>
+<p>For the most part, PyQt5 and PySide2 are very similar. The <a href="https://doc.qt.io/qtforpython/pysideapi2.html">Qt for Python API</a> is even designed to be compatible with PyQt5.</p>
+<p>Moreover, I'm going to explain the difference in the following areas in detail.</p>
+<ul>
+<li>License</li>
+<li>API completeness</li>
+<li>Tools</li>
+<li>Community and support</li>
+<li>Binding generator</li>
+</ul>
+<h3>License</h3>
+<p>The most significant difference between PyQt5 and PySide2 is the license. PyQt5 is released under the GNU GPL v3 and the Riverbank Commercial License. Qt for Python is available under the LGPL v3 and the Qt Commercial License.</p>
+<p>The PyQt5 commercial license costs 550$ net with one year support. The price for a commercial Qt license varies depending on the size of your company and your application.</p>
+<p>What does this mean for your application? If you are developing open-source software, for the most part, it doesn't matter. However, in some cases, for example, when you want to build an open-source application that can be used in closed-source commercial projects, it may be significant that the dependency libraries don't use the GPL.</p>
+<p>When you are working on a commercial application, however, it does matter if you select the GPL, LGPL or any of the commercial licenses. With the GPL you will need to publish the source code of your application and, more importantly, your application also needs to be licensed under a GPL compatible license. For most commercial applications this is unacceptable.</p>
+<p>The LGPL however, allows you to distribute your closed-source application along with instructions on how to replace the library.</p>
+<p>The commercial license allows you to distribute your application without requiring any instructions. This especially important for embedded devices, when you intend to lock down the users' access to the file system.</p>
+<p>However, be aware that the Riverbank Commercial License is only applicable to the Python binding and not Qt itself. So in case you intend to lock down your application, you may need to buy a commercial license for Qt additionally.</p>
+<p>Therefore, in my opinion, Qt for Python strongly wins when it comes to licensing.</p>
+<h3>Tools and Add-ons</h3>
+<p>The tools that come with the Python Qt binding are rarely discussed when comparing PyQt and Qt for Python.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2019/02/background-blank-business-301703.jpg"><img alt="Some tools" class="aligncenter size-large wp-image-576" decoding="async" height="427" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/pyqt-vs-qt-for-python-pyside2-pyside/background-blank-business-301703-1024x683.jpg" srcset="https://machinekoder.com/wp-content/uploads/2019/02/background-blank-business-301703-1024x683.jpg 1024w, https://machinekoder.com/wp-content/uploads/2019/02/background-blank-business-301703-300x200.jpg 300w, https://machinekoder.com/wp-content/uploads/2019/02/background-blank-business-301703-768x512.jpg 768w, https://machinekoder.com/wp-content/uploads/2019/02/background-blank-business-301703-360x240.jpg 360w" width="640"/></a></p>
+<p>PyQt comes with a whole range of tools. One of the most interesting ones is the <code>pyqtdeploy</code> tool, which claims to be able to deploy PyQt applications for Windows, Linux, OS X, Android and, even iOS.</p>
+<p>I have tested the tool, and it seems to work for desktop platforms. However, I couldn't get it to work correctly for Android, due to lack of sufficient documentation.</p>
+<p>Moreover, PyQt comes with additional add-ons and libraries including <a href="https://www.riverbankcomputing.com/software/qscintilla/intro">QScintilla2</a> and <a href="https://www.riverbankcomputing.com/software/dip/intro">dip</a>. Most of the libraries seem to be focused on the use with Qt widgets.</p>
+<p>PySide2 currently has no dedicated deployment tool.</p>
+<p>PyQt wins when it comes to tools. However, the difference might be insignificant if you use the Python binding to work with Qt Quick.</p>
+<h3>API Completeness</h3>
+<p>When it comes to the API, PyQt5 is very similar to PySide2. However, from my experience, I know that both bindings have their flaws.</p>
+<p>Qt for Python is still relatively new, and therefore, some essential API functions, including for example <a href="https://bugreports.qt.io/browse/PYSIDE-574"><code>qmlRegisterSingletonType</code></a> are still missing.</p>
+<p>From my experience with PyQt5, I also know that QML related features might be missing or untested. For example, I recently discovered that <code>QValidator</code> implementations in Python registered to QML don't work.</p>
+<p>Overall, I would say PyQt5 wins this battle compared to PySide2.</p>
+<h3>Community and Support</h3>
+<p>An important factor when choosing an open source project or any dependency library over another is the community and support behind the project.</p>
+<p>Here PyQt and Qt for Python significantly differ. From a community standpoint, PyQt probably has a larger community. However, the development process doesn't seem to be very open, and it is lead by a single entity.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2019/02/achievement-agreement-arms-1068523.jpg"><img alt="Community" class="aligncenter size-large wp-image-577" decoding="async" height="419" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/pyqt-vs-qt-for-python-pyside2-pyside/achievement-agreement-arms-1068523-1024x670.jpg" srcset="https://machinekoder.com/wp-content/uploads/2019/02/achievement-agreement-arms-1068523-1024x670.jpg 1024w, https://machinekoder.com/wp-content/uploads/2019/02/achievement-agreement-arms-1068523-300x196.jpg 300w, https://machinekoder.com/wp-content/uploads/2019/02/achievement-agreement-arms-1068523-768x502.jpg 768w, https://machinekoder.com/wp-content/uploads/2019/02/achievement-agreement-arms-1068523-360x235.jpg 360w" width="640"/></a></p>
+<p>PySide has lost most of the community from the Nokia days, but since it has been picked up as official Qt binding for Python, it's very likely that the community will quickly catch up. The development process is open and very close to the development process of Qt.</p>
+<p>Commercial support for PyQt is cheaper than the commercial support for Qt for Python. However, which quality of support is given, is unclear. The Qt Company, on the other hand, can provide support for all types of customers, including project-based consulting and on-site support.</p>
+<p>Also important to notice is the fact that the supporting company behind PyQt, Riverbank Computing, is a tiny company, probably only one person. We hope that it will not happen, but if he/she gets hit by a bus, you are out of luck.</p>
+<p>Qt for Python clearly wins this point.</p>
+<h3>Binding Generator</h3>
+<p>d<br>
+Which Python C/C++ binding generator the binding uses might not be relevant to you if you want to use the library without adding any additional C++ libs. However, if you plan to access an extra C or C++ library from Python, then the choice of the Python binding generator might be relevant to you.</br></p>
+<p>PyQt comes with the <a href="https://www.riverbankcomputing.com/software/sip/intro">SIP</a> binding generator.</p>
+<p>PySide comes with the <a href="https://doc.qt.io/qtforpython/shiboken2/index.html">Shiboken</a> binding generator.</p>
+<p>From the results, the most critical difference is that bindings generated by Shiboken can accept any kind of input, whereas SIP generated bindings only take types which are known by SIP.</p>
+<p>Moreover, SIP can be used to generate Python bindings for C as well as C++ libs. Shiboken, on the other hand, is designed to work with C++.</p>
+<p>How to create custom bindings with SIP and Shiboken strongly differs. Let's take a look at a short example.</p>
+<pre><code class="cpp">// Define the interface to the word library.
+
+class Word {
+const std::strin the_word;
+
+public:
+Word(const std::string &amp;w);
+
+std::string reverse() const;
+};
+</code></pre>
+<p>The SIP specification looks as follows:</p>
+<pre><code>// Define the SIP wrapper to the word library.
+
+%Module word
+
+class Word {
+
+%TypeHeaderCode
+#include &lt;word.h&gt;
+%End&lt;/word.h&gt;
+
+public:
+Word(const std::string &amp;w);
+
+std::string reverse() const;
+};
+</code></pre>
+<p>As you can see, the SIP specification code is mostly copy-and-paste of the actual C++ code. Most importantly, every function which should be exposed needs to be defined.</p>
+<p>The Shiboken code, on the other hand, looks as follows:</p>
+<pre><code>#ifndef BINDINGS_H
+#define BINDINGS_H
+#include "word.h"
+#endif // BINDINGS_H
+</code></pre>
+<pre><code class="xml">&lt;!--?xml version="1.0"?--&gt;
+&lt;typesystem package="Universe"&gt;
+     &lt;primitive-type name="std::string"&gt;
+     &lt;object-type name="Word"&gt;
+&lt;/object-type&gt;
+&lt;/primitive-type&gt;&lt;/typesystem&gt;
+</code></pre>
+<p>We have a bindings header file and an XML file specifying a type system. Shiboken generates the API functions automatically generated from the C++ code.</p>
+<p>Which binding generator to choose might be personal preference. However, from a maintenance standpoint, Qt for Python wins his battle.</p>
+<h2>Wrappers</h2>
+<p>PyQt and Qt for Python both have its advantages and disadvantages. As of the beginning of 2019, the choice between PySide2 and PyQt is not easy to decide.</p>
+<p>Luckily, the APIs of PyQt and Qt for Python are very similar. A couple of projects already take advantage of this fact and provide a small abstraction layer over both libraries.</p>
+<ul>
+<li><a href="https://github.com/spyder-ide/qtpy">QtPy</a></li>
+<li><a href="https://github.com/ros-visualization/python_qt_binding">python_qt_binding</a></li>
+<li><a href="https://github.com/mottosso/Qt.py">Qt.py</a></li>
+<li><a href="https://github.com/jupyter/qtconsole/blob/master/qtconsole/qt_loaders.py">jupyter</a></li>
+<li><a href="https://bitbucket.org/ftrack/qtext">QtExt</a></li>
+</ul>
+<p>The most popular one is probably QtPy, I use python_qt_binding, the wrapper used in ROS, in most of my projects. python_qt_bindings additionally provides a small CMAKE shim for Shibokem and SIP. This important for projects such as <a href="https://github.com/ros-visualization/rviz">RViz</a> which provide Python bindings for PyQt and PySide.</p>
+<h2>Conclusion</h2>
+<p>In this blog post, you learned about the difference between PyQt5 and PySide2 (aka Qt for Python). The side-by-side comparison of the advantages and disadvantages will make it easier for you to decide which Python binding for Qt to choose.</p>
+<p>If you don't want to invest too much in one or the other, you can use one of the present wrappers. Using a wrapper is also my preferred choice for current projects.</p>
+<p>Your<br/>
+Machine Koder</p>

@@ -1,0 +1,428 @@
+<!--
+{
+  "title": "Creating QML Properties Dynamically at Runtime from C++",
+  "date": "2017-12-03T07:37:41",
+  "slug": "creating-qml-properties-dynamically-runtime-c",
+  "original_url": "https://machinekoder.com/creating-qml-properties-dynamically-runtime-c/",
+  "featured_image": "/static/blog_images/creating-qml-properties-dynamically-runtime-c/qml-properties-at-runtime-1.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">8</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>I have been searching for an adequate solution for this problem for a few years and recently got a good hint for closing this open loop at the <a href="https://blog.qt.io/blog/2017/10/16/qt-world-summit-2017-wrap/">Qt World Summit 2017</a>.</p>
+<p>In fact, I have not found only one, but two new solutions for this problem.</p>
+<p>I explain all three solutions, the quick fix, a better approach and my current state of the art, in this blog post.</p>
+<p><strong>UPDATE on December 8th, 2017:</strong> <em>Grecko</em> gave me a hint to take a look at <em>QQmlPropertyMap</em>. So now we have four solutions to solve the problem.</p>
+<h2>Introduction</h2>
+<p>You may be familiar with the <code>Q_PROPERTY</code> macro and defining properties via the <code>property</code> keyword inside QML. However, in some situations, it is useful to create the properties for QML item at runtime.</p>
+<p>However, this is not as trivial as it seems. QML is just not designed <a href="https://stackoverflow.com/questions/12564289/how-can-i-add-property-dynamically-to-a-qml-element">to create properties dynamically at runtime</a>.</p>
+<p>There is no public API exposing something like <code>addProperty</code> in QML or C++.</p>
+<p>In fact, <a href="http://doc.qt.io/qt-5/properties.html">Qt's property system</a> supports creating dynamic properties at runtime. However, these properties (created with <code>setProperty</code>) are ignored by QML.</p>
+<h2>Use Case</h2>
+<p>The <a href="https://github.com/qtquickvcp/qtquickvcp">QtQuickVcp</a> remote UI framework <a href="http://machinekit.io">Machinekit</a> syncs the machine status via the <a href="https://machinekoder.com/machinetalk-explained-part-1-introduction/">Machinekitalk middleware</a>.</p>
+<p>One of the core concepts in Machinetalk is the full and incremental update approach. This means the Machinetalk server sends a complete status message once and consequent updates as incremental update messages.</p>
+<p>In QtQuickVcp, we represent the application status as a tree-like structure. The Protobuf definitions of Machinetalk specify how this tree-like structure looks like - so it makes sense to auto-generate this structure from the Protobuf message descriptor.</p>
+<p>One could argue here that a tree model would fit this application. However, the use case does not exactly match a scenario where I would use a tree model.</p>
+<p>Let's say we have Text element in QML where we want to show the position value of the A axis from Machinekit.</p>
+<pre><code class="qml">Text {
+    text: status.motion.axis[0].position.toFixed(3)
+}
+</code></pre>
+<p>In another part of the application we need the enabled field of the motion object:</p>
+<pre><code class="qml">CheckBox {
+    checked: status.motion.enabled
+}
+</code></pre>
+<p>As we can see, the status object contains very different items and the data is not used in a tree view.</p>
+<p>In QML, a JSON object feels very natural to represent our status data.</p>
+<h2>The Quick Fix - QJsonObject</h2>
+<p>The easiest way to create nested QML items with varying properties at runtime is to use the JavaScript engine that comes with QtQuick.</p>
+<p>For this purpose, we use the QJsonObject which the QmlEngine supports per default.</p>
+<p>QJsonObject is the C++ representation of a JSON object with Qt. Therefore, it supports all the features a native JavaScript object does inside a QML application, including dynamic object properties.</p>
+<p>Let's take a look at this solution.</p>
+<p>In our C++ object we create a <code>Q_PROPERTY</code> of the type <code>QJsonObject</code>.</p>
+<pre><code class="cpp">Q_PROPERTY(QJsonObject data READ data WRITE setData NOTIFY dataChanged)
+</code></pre>
+<p>We create our JSON object like this.</p>
+<pre><code class="cpp">QJsonObject jsonObject;
+
+// property
+{
+    QJsonValue jsonValue = 0;
+    jsonObject.insert("id", jsonValue);
+    jsonObject.insert("name", "");
+}
+
+// nested object
+{
+    QJsonObject object;
+    object.insert("number", 0);
+    object.insert("country", "");
+    jsonObject.insert("phone", object);
+}
+</code></pre>
+<p>To update the object we can use the following code snippet.</p>
+<pre><code class="cpp">// partial property update
+{
+    jsonObject.insert("id", 10);
+}
+
+// partial update of nested object
+{
+    QJsonObject object = jsonObject.value("phone").toObject();
+    object.insert("number", 12345);
+    jsonObject.insert("phone", object);
+}
+</code></pre>
+<p>However, it is important to note at this point, that properties of JavaScript objects aren't the same as the properties of QML components. To make it short, they don't support the property binding which makes QML such a great programming language.</p>
+<p>But the QmlEngine helps us here. If you create a property binding which references a property of a JavaScript object the QmlEngine automatically resolves the root object and property. This means when you update the root object your property binding is also re-evaluated.</p>
+<p>This comes at a high cost since every single update to the object tree structure triggers a re-evaluation of all our property bindings. As you can imagine, this leads to low performance when we update the message structure frequently.</p>
+<h2>A better Solution - QmlEngine</h2>
+<p>Another way to create new QML properties came to my mind during the <a href="https://www.kdab.com/">KDAB</a> training day of the <a href="https://www.qtworldsummit.com/">Qt World Summit 2017</a>.</p>
+<p>By creating a custom <em>Loader</em> component through subclassing the <em>QQuickItem</em> class, one can interpret QML code at runtime.</p>
+<p>So my idea was to generate a QML code including the custom properties. This way I can add and change properties at runtime.</p>
+<p><code>customloader.h</code>:</p>
+<pre><code class="cpp">#ifndef CUSTOMLOADER_H
+#define CUSTOMLOADER_H
+
+#include &lt;QObject&gt;
+#include &lt;QQuickItem&gt;
+#include &lt;QQmlParserStatus&gt;
+
+class CustomLoader
+        : public QQuickItem
+{
+    Q_OBJECT
+    Q_PROPERTY(QObject* item READ item NOTIFY itemChanged)
+
+public:
+    CustomLoader(QQuickItem *parent = nullptr);
+
+    void componentComplete();
+
+    QObject* item() const;
+
+    Q_INVOKABLE void load();
+
+private:
+    QObject* m_item;
+
+    QObject *createCustomComponent();
+
+signals:
+    void itemChanged();
+};
+
+
+#endif // CUSTOMLOADER_H
+</code></pre>
+<p><code>customloader.cpp</code></p>
+<pre><code class="cpp">#include "customloader.h"
+#include "dynamicobject.h"
+#include &lt;QQmlComponent&gt;
+#include &lt;QQuickItem&gt;
+#include &lt;QQmlListProperty&gt;
+#include &lt;QtQml&gt;
+
+CustomLoader::CustomLoader(QQuickItem *parent)
+    : QQuickItem(parent)
+    , m_item(new QObject(this))
+{
+}
+
+void CustomLoader::componentComplete()
+{
+    m_item-&gt;deleteLater();
+    m_item = createCustomComponent();
+    emit itemChanged();
+    emit otherChanged();
+}
+
+QObject *CustomLoader::item() const
+{
+    return m_item;
+}
+
+QObject *CustomLoader::createCustomComponent()
+{
+    QQmlEngine *engine = qmlEngine(this);
+
+    if (engine == nullptr) {
+        qWarning() &lt;&lt; "could not detect qml engine";
+        return nullptr;
+    }
+
+    QQmlComponent component(engine);
+    component.setData("import QtQuick 2.0\n"
+                      "QtObject {\n"
+                        "property int id: 0\n"
+                        "property string name: \"\"\n"
+                        "property QtObject phone: QtObject {\n"
+                            "property int number: 0\n"
+                            "property string country: \"\"\n"
+                        "}\n"
+                      "}", QUrl());
+    auto childItem = component.create();
+    if (childItem == nullptr) {
+        qCritical() &lt;&lt; component.errorString();
+        return nullptr;
+    }
+    childItem-&gt;setParent(this);
+    return childItem;
+}
+</code></pre>
+<p>To update the newly create QML item we can use:</p>
+<pre><code class="cpp">// partial property update
+{
+    m_item-&gt;setProperty("id", 10);
+}
+
+// partial update of nested object
+{
+    auto phone = qvariant_cast&lt;QObject *&gt;(m_item-&gt;property("phone"));
+    phone-&gt;setProperty("number", 12345);
+}
+</code></pre>
+<p>The good thing about this approach is that the QML property bindings work as expected. You also can see that we don't need to re-assign the <code>phone</code> object to the <code>phone</code> property.</p>
+<p>The downside of this approach is that we rely on string-magic to create our QML item. This is a somewhat cumbersome since we need to care about closing parentheses and correct naming.</p>
+<p>Note that a special bonus of the <code>QJsobObject</code> approach was that we could create properties with numbers as names, e.g. <code>0</code> or <code>1</code>. This was very useful to fake indexes for array-like objects.</p>
+<p>However, performance should be a lot better for big objects, since we don't need to update the complete object tree if we just need to update a single property.</p>
+<h2>Dealing with the Root Cause of the Problem - QMetaObject</h2>
+<p>Since I was not a hundred percent satisfied with the <code>QQmlEngine</code> approach I researched deeper to find the root cause of the problem.</p>
+<p>At the QtCon 2016, I attended a talk about the Qt SCXML state machine. I noticed that the QML implementation of the state machine generated properties at runtime when loading SCXML files.</p>
+<p>That was exactly what I needed in my application. A Qt developer pointed out to me that the Qt SCXML state machine relies heavily on Qt MetaObject magic.</p>
+<p>So I decided to take a deeper look at <code>QMetaObject</code> and how the QML engine works internally.</p>
+<p>During my research, I came across a <a href="https://www.youtube.com/watch?v=rtIBjTPE45Q">talk by Volker Krause from the Qt Developer Days 2014</a> explaining how to do what moc does from C++ at runtime.</p>
+<p>This talk opened my mind, I finally understood how the Qt MetaObject system works and how to create dynamic meta-objects.</p>
+<p>Every <em>QObject</em> derived class must implement the functions <code>metaObject</code>, <code>qt_metacall</code> and <code>qt_metacast</code> defined in the <code>Q_OBJECT</code> macro.</p>
+<p>These methods are usually generated by the <code>moc</code> tool from the class header file and stored in the <code>moc_&lt;filename&gt;.cpp</code> source files.</p>
+<p>If you ever wondered why you need to add the <code>HEADERS</code> directive qmake you now know why. When you remove the class header file from <code>HEADERS</code> you get compiler errors that the above-mentioned functions are missing.</p>
+<p>So what do we need to do in order to create our properties at runtime? Yes - build our own QMetaObjects.</p>
+<p>For this purpose, I wrote a new <code>DynamicObject</code> class with a <code>addProperty</code> function. To fully understand the class, I recommend watching Volker Krauses <a href="https://www.youtube.com/watch?v=rtIBjTPE45Q">talk on YouTube</a>.</p>
+<p><code>dynmaicobject.h</code></p>
+<pre><code class="cpp">#ifndef DYNAMICOBJECT_H
+#define DYNAMICOBJECT_H
+
+#include &lt;QObject&gt;
+#include &lt;QVariant&gt;
+
+class DynamicObject : public QObject
+{
+    Q_OBJECT
+public:
+    explicit DynamicObject(QObject *parent = nullptr);
+
+    ~DynamicObject();
+
+    /** Adds a new property to the object, must be called before ready(). */
+    void addProperty(const QByteArray &amp;name, const QByteArray &amp;type, const QVariant &amp;value);
+
+    /** Marks the object as ready and creates the metaObject. */
+    void ready();
+
+signals:
+
+public slots:
+
+private:
+    struct DynamicProperty {
+        QByteArray name;
+        QByteArray type;
+        int typeId;
+        QVariant variant;
+    };
+
+    QMetaObject *m_metaObject;
+    std::vector&lt;DynamicProperty&gt; m_properties;
+};
+
+#endif // DYNAMICOBJECT_H
+</code></pre>
+<p>and the source file<br>
+<code>dynamicobject.cpp</code></br></p>
+<pre><code class="cpp">#include "dynamicobject.h"
+#include &lt;private/qmetaobjectbuilder_p.h&gt;
+#include &lt;cstring&gt;
+#include &lt;QtDebug&gt;
+#include &lt;QLoggingCategory&gt;
+
+Q_LOGGING_CATEGORY(loggingCategory, "DynamicObject");
+
+DynamicObject::DynamicObject(QObject *parent)
+    : QObject(parent)
+    , m_metaObject(nullptr)
+{
+}
+
+DynamicObject::~DynamicObject()
+{
+    free(m_metaObject);
+}
+
+void DynamicObject::addProperty(const QByteArray &amp;name, const QByteArray &amp;type, const QVariant &amp;value)
+{
+    if (m_metaObject != nullptr) {
+        qCWarning(loggingCategory) &lt;&lt; "Can't add property after calling ready()";
+        return;
+    }
+
+    m_properties.emplace_back(DynamicProperty{name, type, QMetaType::type(type), value});
+}
+
+void DynamicObject::ready()
+{
+    if (m_metaObject != nullptr) {
+        qCWarning(loggingCategory) &lt;&lt; "ready() should be called only once.";
+        return;
+    }
+
+    QMetaObjectBuilder builder;
+    builder.setClassName("DynamicObject");  // TODO: find out if it is legit to have single class name
+    builder.setSuperClass(&amp;QObject::staticMetaObject);
+
+    for (const auto &amp;dynamicProperty: m_properties) {
+        auto property = builder.addProperty(dynamicProperty.name, dynamicProperty.type);
+        property.setWritable(true);
+        auto signal = builder.addSignal(dynamicProperty.name + "Changed()");
+        property.setNotifySignal(signal);
+    }
+
+    m_metaObject = builder.toMetaObject();
+}
+
+const QMetaObject* DynamicObject::metaObject() const {
+    return m_metaObject;
+}
+
+int DynamicObject::qt_metacall(QMetaObject::Call call, int id, void **argv)
+{
+    const int realId = id - m_metaObject-&gt;propertyOffset();
+    if (realId &lt; 0) {
+        return QObject::qt_metacall(call, id, argv);
+    }
+
+    if (call == QMetaObject::ReadProperty) {
+        const auto &amp;property = m_properties.at(static_cast&lt;size_t&gt;(realId));
+        QMetaType::construct(property.typeId, argv[0], property.variant.data());
+    }
+    else if (call == QMetaObject::WriteProperty) {
+        auto &amp;property = m_properties.at(static_cast&lt;size_t&gt;(realId));
+        property.variant = QVariant(property.typeId, argv[0]);
+        *reinterpret_cast&lt;int*&gt;(argv[2]) = 1;  // setProperty return value
+        QMetaObject::activate(this, m_metaObject, realId, nullptr);
+    }
+    else {
+        // not handled
+    }
+
+    return -1;
+}
+
+void* DynamicObject::qt_metacast(const char *name)
+{
+    if (strcmp(name, m_metaObject-&gt;className()) == 0) {
+        return this;
+    }
+    else {
+        return QObject::qt_metacast(name);
+    }
+}
+</code></pre>
+<p>You can find the complete source in the <a href="https://github.com/qtquickvcp/QtQuickVcp/tree/master/src/machinetalk">QtQuickVcp source tree</a>.</p>
+<p>So inside the class, we have our own representation of a property called <code>DynamicProperty</code>. The <code>addProperty</code> function adds a new property to our properties list.</p>
+<p>When done setting up our dynamic object we call <code>ready</code> to create the <code>QMetaObject</code>. For this purpose, we use the <code>QMetaObjectBuilder</code> included in the private Qt Core API.</p>
+<p><code>qt_metacall()</code>  contains the logic required by Qt's meta-object system to match property ids with the underlying <code>QVariant</code> values.</p>
+<p><code>qt_metacast()</code> just does most basic stuff, no fancy casting logic required here.</p>
+<p>Let's take a look at how to use the <code>DynamicObject</code> in our code.</p>
+<p>To create the object:</p>
+<pre><code class="cpp">auto object = new DynamicObject(parent);
+
+// property
+{
+    object-&gt;addProperty("id", "int", QVariant::fromValue(0));
+    object-&gt;addProperty("name", "QString", QVariant::fromValue(QString("")));
+}
+
+// nested object
+{
+    QObject *subObject = new DynamicObject(object);
+    subObject-&gt;addProperty("number", "int", QVariant::fromValue(0));
+    subObject-&gt;addProperty("country", "QString", QVariant::fromValue(QString("")));
+    subObject-&gt;ready();
+    object-&gt;addProperty("phone", "QObject*", QVariant::fromValue(subObject));
+}
+
+object.ready(); // finalize the QMetaObject
+</code></pre>
+<p>As we can see, this enables us to create new properties very conveniently at runtime. The only non-static thing left here is the type names required by the QMetaObject system.</p>
+<p>Updating the object properties works similar to the <em>QQmlEngine</em> approach.</p>
+<pre><code class="cpp">// partial property update
+{
+    m_item-&gt;setProperty("id", 10);
+}
+
+// partial update of nested object
+{
+    auto phone = qvariant_cast&lt;QObject *&gt;(m_item-&gt;property("phone"));
+    phone-&gt;setProperty("number", 12345);
+}
+</code></pre>
+<p>As mentioned earlier, one advantage of the <code>QMetaObject</code> approach for creating dynamic properties at runtime is that we also can create properties with non-QML conform names.</p>
+<p>For example:</p>
+<pre><code class="cpp">object-&gt;addProperty("0", "int", QVariant::fromValue(0));
+</code></pre>
+<p>This allows us to access the property from QML by using:</p>
+<pre><code class="qml">property int foo: object[0]
+</code></pre>
+<p>which is very convenient for index-based access to array-like structures, such as for example a position vector.</p>
+<p>The big upside of this approach is that property bindings work perfectly fine. Moreover, we can make use of the complete variety of types available in the Qt meta-object system, plus we don't need to rely on cumbersome string-building magic.</p>
+<p>The downsides of this approach for creating dynamic properties include that we rely on including private Qt headers, which gives us a big fat warning when compiling the project that this may break binary API compatibility to other Qt versions. Moreover, we need to add an additional <code>DynamicObject</code> class to our project.</p>
+<p>If you need more advanced usage examples such as how to use create dynamic lists, please take a look at the <a href="https://github.com/qtquickvcp/QtQuickVcp/blob/master/tests/machinetalktests/test_machinetalkservice.cpp">QtQuickVcp source code on Github</a>.</p>
+<h2>An even better Solution: QQmlPropertyMap</h2>
+<p><em>Grecko</em> pointed out another solution: using <a href="http://doc.qt.io/qt-5/qqmlpropertymap.html">QQmlPropertyMap</a>. And indeed, this class provides a similar interface to the <code>DynamicObject</code> class presented in the previous chapter.</p>
+<p>So for most of your applications, I suggest choosing this approach over the custom <code>QMetaObject</code> method.</p>
+<p>First of all, you don't need to use any private Qt APIs, which ensures binary compatibility with future Qt 5 versions.</p>
+<p>Moreover, you don't need to write your own <code>DynamicObject</code> class, so this method is far simpler.</p>
+<p>Let's take a look at how to use the <code>QQmlPropertyMap</code>.</p>
+<p>To create the object:</p>
+<pre><code class="cpp">auto object = new QQmlPropertyMap(parent);
+
+// property
+{
+    object-&gt;insert("id", QVariant::fromValue(0));
+    object-&gt;insert("name", QVariant::fromValue(QString("")));
+}
+
+// nested object
+{
+    auto subObject = new QQmlPropertyMap(object);
+    subObject-&gt;insert("number", QVariant::fromValue(0));
+    subObject-&gt;insert("country", QVariant::fromValue(QString("")));
+    object-&gt;insert("phone", QVariant::fromValue(subObject));
+}
+</code></pre>
+<p>Updating the object properties works exactly like the <code>DynamicObject</code> approach.</p>
+<pre><code class="cpp">// partial property update
+{
+    m_item-&gt;setProperty("id", 10);
+}
+
+// partial update of nested object
+{
+    auto phone = qvariant_cast&lt;QObject *&gt;(m_item-&gt;property("phone"));
+    phone-&gt;setProperty("number", 12345);
+}
+</code></pre>
+<p>When you take at <a href="https://github.com/qt/qtdeclarative/blob/5.10/src/qml/util/qqmlpropertymap.cpp">the source code of the QQmlPropertyMap class</a> you will see that it makes of the private <code>QMetaObjectBuilder</code> class.</p>
+<p>Additionally, I could verify that numbered properties (e.g. "0") work here as well. In the <a href="https://github.com/qtquickvcp/qtquickvcp.git">QtQuickVcp</a> I just needed to replace six lines to make everything work with <code>QQmlPropertyMap</code>.</p>
+<h2>Conclusion</h2>
+<p>In this article, you learned about the three ways I discovered to create QML properties at runtime from C++:</p>
+<ul>
+<li>Using QJsonObject</li>
+<li>Using QQmlEngine</li>
+<li>Using QMetaObject</li>
+<li>Using QQmlPropertyMap</li>
+</ul>
+<p>All four approaches have their pros and cons and I recommend you to review them carefully for your application.</p>
+<p>If you find any potential problems or if you have additional ideas on how to create QML properties dynamically please add your thoughts in the comments section.</p>
+<p>I hope you have enjoyed reading this blog post and if so please subscribe and share it with your friends.</p>
+<p>Your<br/>
+Machine Koder</p>

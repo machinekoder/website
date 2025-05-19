@@ -1,0 +1,183 @@
+<!--
+{
+  "title": "Cloud-based Continuous Integration for QtQuickVcp",
+  "date": "2016-10-08T08:48:31",
+  "slug": "cloud-based-continous-integration-for-qtquickvcp",
+  "original_url": "https://machinekoder.com/cloud-based-continous-integration-for-qtquickvcp/",
+  "featured_image": "/static/blog_images/cloud-based-continous-integration-for-qtquickvcp/qtquickvcp_ci-1.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">6</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is about the continuous integration of Qt applications with the example of the <a href="https://github.com/machinekoder/QtQuickVcp">QtQuickVcp</a> project.</p>
+<p>It demonstrates how to build Qt applications and libraries for Linux and Android using <a href="http://travis-ci.org">Travis CI</a> and <a href="https://www.docker.com/">Docker</a>.</p>
+<p>Furthermore, I mention how to build Qt applications for Windows and OS X.</p>
+<h2>My Motivation</h2>
+<p>At the beginning of October, I visited the <a href="https://qtcon.org/">QtCon</a> conference in Berlin. There I attended a talk about the CI of the <a href="https://musescore.org/">MuseScore</a> project.</p>
+<p>From this talk, I got a lot of new ideas of how to implement CI for QtQuickVcp using Travis CI, Docker and <a href="https://www.appveyor.com/">AppVeyor</a>.</p>
+<p>This talk was the reason for me to think about retiring my existing Buildbot-based CI setup for QtQuickVcp.</p>
+<h2>Travis CI vs. Buildbot</h2>
+<p>As mentioned, I previously used a <a href="http://buildbot.net/">Buildbot</a>-based setup for continuously integrating QtQuickVcp.</p>
+<p>Buildbot is Python-based CI system which uses a master-slave configuration. You have to have one build master to monitor Git repositories and to trigger builds.</p>
+<p>The build master manages multiple build slaves. These build slaves are Python client applications executing commands send by the master.</p>
+<p>In my QtQuickVcp scenario, I host the master on my virtual server. The build slaves are physical machines.</p>
+<p>The build configuration itself is written in Python as a set of build steps. The whole setup is rather complicated and time intensive.</p>
+<p>However, the biggest reason for me to retire my build farm is, that I don't want to maintain multiple physical devices.</p>
+<p>Travis CI and other similar CI systems on the other hand offer script based solutions to run builds entirely in the cloud.</p>
+<p>Which leads me to another advantage of Travis CI over Buildbot -&gt; The build configuration is hosted in the same Git repository as the project itself.</p>
+<h2>Setup Overview</h2>
+<p>Since I don't want to maintain a build farm, I decided to use <a href="http://travis-ci.org">Travis CI</a> and <a href="https://www.appveyor.com/">AppVeyor</a> for continuous integration.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/10/qtquickvcp_ci.svg"><img alt="qtquickvcp_ci" class="alignnone size-full wp-image-140" decoding="async" src="/static/blog_images/cloud-based-continous-integration-for-qtquickvcp/qtquickvcp_ci.svg"/></a></p>
+<p>For building the Linux and Android version, I decided to use the same setup as MuseScore using Docker containers.</p>
+<p>Travis CI uses a Linux, or a Mac OS X build host which would be suitable for compiling the Linux and Android versions of QtQuickVcp.</p>
+<p>However, using Docker containers in combination with Travis CI allows full control of the build environment and easier local testing of the build script.</p>
+<p>Furthermore, using Docker containers allows us to create a build environment which we can "pollute" as much as we want during building.</p>
+<h2>Docker Containers</h2>
+<p>Creating custom Docker containers is very easy:</p>
+<ul>
+<li>Select a base image</li>
+<li>Write a build script</li>
+<li>Build the container</li>
+</ul>
+<p>It all boils down to the following <em>Dockerfile</em>:</p>
+<pre><code>FROM library/debian:jessie
+MAINTAINER Alexander Rössler &lt;mail@roessler.systems&gt;
+COPY init.sh /tmp/init.sh
+RUN sed -i "s/httpredir.debian.org/ftp.us.debian.org/" /etc/apt/sources.list
+RUN /tmp/init.sh
+</code></pre>
+<p>and the build command:</p>
+<pre><code class="bash">docker build --no-cache=true -t machinekoder/qtquickvcp:linux-x64 .
+</code></pre>
+<p>The fourth line of the <em>Dockerfile</em> probably needs some explanation:</p>
+<p>Per default, Docker containers come with the <code>httpredir.debian.org</code> mirror enabled. However, it turned out that the HTTP redirection causes the Docker builds to be unreliable. Using the US mirror produces consistent results.</p>
+<p>You can find my Qt build <em>Dockerfiles</em> on <a href="https://github.com/machinekoder/qtquickvcp-docker/">GitHub</a>.</p>
+<p>Additionally, I use the Docker Hub cloud build service to automatically build the Docker images whenever the Git repository is updated. You can find the Docker Hub repository <a href="https://hub.docker.com/r/machinekoder/qtquickvcp-docker-linux-x64/">here</a>.</p>
+<h2>Installing Qt-SDK in Docker build</h2>
+<p>One of the challenges I faced when creating the Docker build script was how to install the Qt-SDK without the installer.</p>
+<p>The answer is surprisingly simple:</p>
+<ul>
+<li>Install the Qt-SDK on your development machine.</li>
+<li>Zip the contents of the Qt platform folder (e.g. <code>~/Qt/5.7/gcc_64/</code>).</li>
+<li>Upload the zipped file somewhere accessible from the web.</li>
+<li>Download and unzip it in your Docker container.</li>
+</ul>
+<p>Here are the commands in short.</p>
+<p>On your development machine:</p>
+<pre><code class="bash">cd ~/Qt/5.7/gcc_64/
+tar -cjSf Qt-5.7-Linux-x64.tar.bz2 *
+scp Qt-5.7-Linux-x64.tar.bz2 youruser@yourhost.com:~/webcontent/qt-bin/
+</code></pre>
+<p>In the Docker build script:</p>
+<pre><code class="bash">mkdir -p qt5 &amp;&amp; wget -q -O qt5.tar.bz2 http://yourhost.com/files/qt-bin/Qt-5.7-Linux-x64.tar.bz2
+tar xjf qt5.tar.bz2 -C qt5
+rm qt5.tar.bz2
+</code></pre>
+<p>During the Qt build:</p>
+<pre><code class="bash">export PATH="${PWD}/qt5/bin:$PATH"
+export LD_LIBRARY_PATH="${PWD}/qt5/lib:$LD_LIBRARY_PATH"
+export QT_PLUGIN_PATH="${PWD}/qt5/plugins"
+export QML_IMPORT_PATH="${PWD}/qt5/qml"
+export QML2_IMPORT_PATH="${PWD}/qt5/qml"
+export QT_QPA_PLATFORM_PLUGIN_PATH="${PWD}/qt5/plugins/platforms"
+export QT_INSTALL_PREFIX="${PWD}/qt5"
+</code></pre>
+<p>That's it.</p>
+<p>If you wonder how to install the Qt-SDK on the Windows, build host. This answer is also simple: AppVeyor already comes with a recent <a href="https://www.appveyor.com/docs/installed-software/#qt">Qt-SDK preinstalled</a>.</p>
+<h2>Qt-SDK Linux runtime dependencies</h2>
+<p>Of course installing Qt-SDK alone does not build anything. We also have to install the runtime dependencies.</p>
+<p>I figured out that the Qt-SDK needs the following packages installed on Debian Jessie:</p>
+<pre><code class="bash">apt-get install -y build-essential gdb dh-autoreconf libgl1-mesa-dev libxslt1.1 git
+# dependencies of qmlplugindump
+apt-get install -y libfontconfig1 libxrender1 libdbus-1-3 libegl1-mesa
+</code></pre>
+<h2>Qt for Android Docker build</h2>
+<p>Automating the Qt for Android build was the hardest part of setting up the CI system.</p>
+<p>Summarized, Qt for Android has the following requirements:</p>
+<ul>
+<li>Qt-SDK for Android installed</li>
+<li>Java JDK installed</li>
+<li>Android SDK installed</li>
+<li>Android NDK installed</li>
+</ul>
+<p>Installing the Qt-SDK and the Java JDK are the easiest part. We already know how to install the Qt-SDK.</p>
+<p>The Java JDK and other Android SDK dependencies can be installed from the Debian repositories:</p>
+<pre><code class="bash">apt install -y make default-jdk ant lib32z1 lib32ncurses5 lib32stdc++6
+</code></pre>
+<p>Note that the Android SDK requires some 32bit libraries.</p>
+<p>Installing the Android-NDK is also straightforward. You can download the zipped NDK from the Google servers:</p>
+<pre><code class="bash">mkdir -p android-ndk &amp;&amp; wget -q -O android-ndk.zip https://dl.google.com/android/repository/android-ndk-r12b-linux-x86_64.zip
+unzip -qq android-ndk.zip -d android-ndk
+rm android-ndk.zip
+cd android-ndk
+mv */* .
+</code></pre>
+<p>Now the tricky part: Installing the Android SDK from the command line.</p>
+<p>The Android SDK does not come with any platforms and build tools installed. Therefore, you need to run the Android SDK tool before doing anything with the SDK.</p>
+<p>I figured out that it easiest to install the SDK on your development machine. Then run the Android SDK and install a target platform. And finally to Zip the resulting folder.</p>
+<p>Unfortunately, I wasted some time on trying to use the latest Android build tools version (25). It turns out that they do not play well with the current Qt-SDK. So ended up using android-19 (4.4) and build tools 23 as for the CI.</p>
+<p>Last but not least, you need to set up an Android toolchain. This can be done with the following command:</p>
+<pre><code class="bash">./android-ndk/build/tools/make-standalone-toolchain.sh --install-dir=/opt/android-toolchain --arch=arm
+export PATH=/opt/android-toolchain/bin:$PATH
+</code></pre>
+<p>In addition to the Qt environment variables I use following Android specific variables in my build setup:</p>
+<pre><code class="bash">export ANDROID_NDK_ROOT="${PWD}/android-ndk"
+export ANDROID_SDK_ROOT="${PWD}/android-sdk"
+export ANDROID_HOME="${PWD}/android-sdk"
+</code></pre>
+<h2>Versioning using Git</h2>
+<p>When using a continuous integration system for continuous deployment as well, it also necessary to do versioning automatically.</p>
+<p>I figured out that this can be easily done using a few git commands.</p>
+<pre><code class="bash"># create a full clone
+git fetch --unshallow
+# find out version number
+release=1
+git describe --exact-match HEAD 2&gt; /dev/null || release=0
+if [ $release -eq 0 ]; then
+    date="$(date -u +%Y%m%d%H%M)"
+
+    branch="$TRAVIS_BRANCH"
+    [ "$branch" ] || branch="$(git rev-parse --abbrev-ref HEAD)"
+
+    revision="$(echo "$TRAVIS_COMMIT" | cut -c 1-7)"
+    [ "$revision" ] || revision="$(git rev-parse --short HEAD)"
+    version="${date}-${branch}-${revision}"
+else
+    version="$(git describe --tags)"
+fi
+</code></pre>
+<p>First of all, you need to create a full clone from the shallow Travis CI clone. If you skip this command, you are not able to count the number to commits on the repository.</p>
+<p>Next, check if the current <code>HEAD</code> of the Git repository matches any tag. If so this is a release build. If it does not match a Git tag, it is a development build.</p>
+<p>For versioning QtQuickVcp using Git tags I use the following schema <code>v0.9.5</code>.</p>
+<p>The prefix <code>v</code> is recommended for versioning releases in Git to prevent aliasing with branch names.</p>
+<h3>Android</h3>
+<p>Android requires a new release code for every upload to Google Play Store. However, I don't like to update the version code in the  <code>AndroidManifest.xml</code> every time I change something in code.</p>
+<p>Therefore, I use the number of commits in the Git repository, or exactly in the current branch, to generate the version code.</p>
+<p>This method ensures that the <code>apk</code> file has a new release code with every build as long as you do not change history.</p>
+<p>Rebasing inside the master branch is not recommend anyway, so this is a safe assumption.</p>
+<p>The following commands do the trick:</p>
+<pre><code class="bash">version_name="$(git describe --tags --abbrev=0)"
+version_code="$(git rev-list --first-parent --count HEAD)"
+manifest="${PWD}/apps/MachinekitClient/android/AndroidManifest.xml"
+sed -i -E "s/(android:versionName=\")([^ ]+)(\")/\1${version_name}\3/" $manifest
+sed -i -E "s/(android:versionCode=\")([^ ]+)(\")/\1${version_code}0\3/" $manifest
+</code></pre>
+<p>Note that the <code>--first-parent</code> argument of the <code>git rev-list</code> command does skip any squashes and merges.</p>
+<p>Also, note that I had to append a <code>0</code> to the version code since I already polluted my version number space during testing.</p>
+<h2>Deployment</h2>
+<p>One great argument for me to setup a CI for QtQuickVcp is continuous deployment.</p>
+<p>Deployment for small one-shot apps does not take much time. However, if you plan to work on a project for a long time the amount of time required to package and upload binaries to app stores and storage servers quickly adds up.</p>
+<p>In my Buildbot setup, I uploaded the files to my <a href="http://buildbot.roessler.systems/files/">own web space</a>.</p>
+<p>In the new cloud-based configuration, I deploy the files to Bintray and the Google Play Store Alpha track.</p>
+<p>However, not only where to deploy the applications but also how to deploy the applications matter.</p>
+<p>Qt does come with packaging applications for Windows, OS X and Android. However, there is no deployment helper for Linux so far.</p>
+<p>Therefore, I wrote the <a href="https://github.com/machinekoder/Qt-Deployment-Scripts">Qt-Deployment-Scripts</a> some time ago.</p>
+<p>These scripts provide the <code>qt-deploy</code> tool which helps to deploy Qt applications for all platforms.</p>
+<p>For Windows it used the <code>windeployqt</code> tool, on OS X the <code>macdeployqt</code> and on Android the <code>androiddeployqt</code> tool. On Linux, it uses a list of libraries which should be deployed within the application.</p>
+<p>Additionally, for bundling the Linux packages, I chose <a href="http://appimage.org/">AppImage</a>.</p>
+<p>I used the MuseScore build scripts as an example of how to deploy Qt applications with AppImage.</p>
+<h2>Summing up</h2>
+<p>Summarized, in this blog post, I explained the new continuous integration setup for QtQuickVcp.</p>
+<p>Besides informing you about the status of QtQuickVcp, it may also serve as a source of inspiration for setting up CI for your Qt project.</p>
+<p>You can find the complete setup on GitHub in the <a href="https://github.com/machinekoder/QtQuickVcp/tree/master/build">QtQuickVcp repository in the <code>build</code> subfolder</a>.</p>
+<p>I hope you enjoyed reading this article and I would like to hear your feedback.</p>
+<p>Your<br>
+Machine Koder</br></p>

@@ -1,0 +1,254 @@
+<!--
+{
+  "title": "How to not shoot yourself in the foot with Python for Qt / PyQt",
+  "date": "2018-05-21T15:35:23",
+  "slug": "how-to-not-shoot-yourself-in-the-foot-using-python-qt",
+  "original_url": "https://machinekoder.com/how-to-not-shoot-yourself-in-the-foot-using-python-qt/",
+  "featured_image": "/static/blog_images/how-to-not-shoot-yourself-in-the-foot-using-python-qt/verboten.svg.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">6</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In the last few weeks, I have been using Python and Qt, especially <a href="https://riverbankcomputing.com/software/pyqt/intro">PyQt</a> extensively.<br>
+During these weeks I have discovered a few ways <a href="http://enki-editor.org/2014/08/23/Pyqt_mem_mgmt.html">how to shoot yourself in the foot</a> accidentally.</br></p>
+<p>In this article, you will learn which things you should watch out for when working on GUIs with Qt and Python and how to avoid the resulting problems.</p>
+<h2>The Application can't be stopped with Ctrl-C</h2>
+<p>The first thing you will notice when writing your first hello world application with PyQt is that you can't stop it anymore from the command-line with <em>Ctrl-C</em>.</p>
+<p>Let's take a look at the following PyQt QML hello world application:</p>
+<p><code>main.py</code></p>
+<pre><code class="python"># -*- coding: utf-8 -*-
+import sys
+
+from PyQt5.QtGui import QGuiApplication
+from PyQt5.QtQml import QQmlApplicationEngine
+
+if __name__ == '__main__':
+    app = QGuiApplication(sys.argv)
+
+    engine = QQmlApplicationEngine()
+    engine.load('./main.qml')
+
+    sys.exit(app.exec_())
+</code></pre>
+<p><code>main.qml</code></p>
+<pre><code class="qml">import QtQuick 2.5
+import QtQuick.Controls 2.0
+
+ApplicationWindow {
+    id: root
+    visible: true
+
+    Label {
+        anchors.centerIn: parent
+        text: qsTr("Hello World!")
+    }
+}
+</code></pre>
+<p>This code snippet works perfectly fine and when you execute it you will see the hello world window as expected.</p>
+<div class="wp-caption aligncenter" id="attachment_437" style="width: 310px"><a href="https://machinekoder.com/wp-content/uploads/2018/05/hello-world.png"><img alt="PyQt hello-world" aria-describedby="caption-attachment-437" class="size-medium wp-image-437" decoding="async" height="277" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/how-to-not-shoot-yourself-in-the-foot-using-python-qt/hello-world-300x277.png" srcset="https://machinekoder.com/wp-content/uploads/2018/05/hello-world-300x277.png 300w, https://machinekoder.com/wp-content/uploads/2018/05/hello-world-768x710.png 768w, https://machinekoder.com/wp-content/uploads/2018/05/hello-world-292x270.png 292w, https://machinekoder.com/wp-content/uploads/2018/05/hello-world.png 968w" width="300"/></a><p class="wp-caption-text" id="caption-attachment-437">PyQt hello-world</p></div>
+<p>However, the first time you try to stop the application from the console you will see that <em>Ctrl-C</em> has no effect and the application just keeps running.</p>
+<pre><code class="shell">$ python ./main.py
+^C^C^C^C^C^C^C^C
+</code></pre>
+<p>Only when hitting the exit button in the application window, the application finally stops as we the expected <code>KeyboardInterruptError</code>:</p>
+<pre><code class="shell"> File "./main.py", line 13, in &lt;module&gt;
+    sys.exit(app.exec_())
+KeyboardInterrupt
+</code></pre>
+<p>Whats happening here?</p>
+<p>Qt strongly builds on a concept called <a href="https://en.wikipedia.org/wiki/Event_loop"><em>event loop</em></a>. Such an event loop enables you to write parallel applications without multithreading. The concept of event loops is especially useful for applications where a long living process needs to handle interactions from a user or client. Therefore, you often will find event loops being used in GUI or web frameworks.</p>
+<p>However, the pitfall here is that Qt is implemented in C++ and not in Python. When we execute <code>app.exec_()</code> we start the Qt/C++ event loop, which loops forever until it is stopped.</p>
+<p>The problem here is that we don't have any Python events set up yet. So our event loop never churns the Python interpreter and so our signal delivered to the Python process is never processed. Therefore, our Python process never sees the signal until we hit the exit button of our Qt application window.</p>
+<p>To circumvent this problem is very easy. We just need to set up a timer kicking off our event loop every few milliseconds.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf.png"><img alt="" class="aligncenter size-medium wp-image-440" decoding="async" height="129" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/how-to-not-shoot-yourself-in-the-foot-using-python-qt/WCM0049.pdf-300x129.png" srcset="https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf-300x129.png 300w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf-768x330.png 768w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf-1024x439.png 1024w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf-360x154.png 360w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0049.pdf.png 1340w" width="300"/></a></p>
+<pre><code class="python"># -*- coding: utf-8 -*-
+import sys
+
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QGuiApplication
+from PyQt5.QtQml import QQmlApplicationEngine
+
+if __name__ == '__main__':
+    app = QGuiApplication(sys.argv)
+
+    engine = QQmlApplicationEngine()
+    engine.load('./main.qml')
+
+    timer = QTimer()
+    timer.timeout.connect(lambda: None)
+    timer.start(100)
+
+    sys.exit(app.exec_())
+
+</code></pre>
+<p>All we added to the hello world application is the code to start to create and start a timer every 100 milliseconds. This way we can safely terminate our application with <code>Ctrl-C</code> from the command line.</p>
+<p><strong>NOTE:</strong> Don't forget to store the variable containing the timer instance somewhere or your timer instance will be garbage collected.</p>
+<h2>Your Python object lives longer than the QObject</h2>
+<p>Another "Shoot yourself in the foot" experience that you will potentially have using Python and Qt is related to memory management.</p>
+<p>As we all know, Python supports automatic memory management, meaning a <a href="https://docs.python.org/3/library/gc.html">garbage collector</a> looks for variables that aren't referenced anymore and frees memory. This usually works very well and it's probably one of the features that make Python way easier to work with than for example C++.</p>
+<p>C++, on the other hand, allows more freedom when it comes to memory management. Freeing up resources is up to the programmer and in the responsibility of the C++ class. For this purpose, C++ objects have a destructor which is called when an object is destroyed.</p>
+<p>However, for more complex applications memory management isn't as easy as it sounds. Who is responsible for cleaning up objects created outside of an instance and assigned to another object instance for example?</p>
+<p>Qt and many other GUI related frameworks, therefore, come with their own memory management mechanism that is especially suitable for window-based graphical applications. The principle is pretty simple. Every object can have children and it is responsible for cleaning up its children. Let's say for example an application <em>window</em> has a child which is a <em>button</em>. When the window is closed, the window calls the <em>deleteLater</em> function of the button. This ensures that for example a complex GUI form is cleaned up in the right order.</p>
+<div class="wp-caption aligncenter" id="attachment_439" style="width: 310px"><a href="https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf.png"><img alt="Qt child parent relationship" aria-describedby="caption-attachment-439" class="size-medium wp-image-439" decoding="async" height="204" loading="lazy" sizes="(max-width: 300px) 100vw, 300px" src="/static/blog_images/how-to-not-shoot-yourself-in-the-foot-using-python-qt/WCM0048.pdf-300x204.png" srcset="https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf-300x204.png 300w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf-768x521.png 768w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf-1024x695.png 1024w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf-360x244.png 360w, https://machinekoder.com/wp-content/uploads/2018/05/WCM0048.pdf.png 1027w" width="300"/></a><p class="wp-caption-text" id="caption-attachment-439">Qt child parent relationship</p></div>
+<p>Additionally, QObject's do not delete their children instantly, but instead, delegate the object deletion to the event loop. This ensures that for example objects created in other tasks are also cleaned up correctly.</p>
+<p>To further complicate things, QtQuick also has a garbage collector similar to Python.</p>
+<p>In most cases, you don't need to really care about Qt's memory management when working with Python and Qt. However, in some cases, it is possible that the Python object, or parts of it, lives longer than the Qt object.</p>
+<p>Let's take a look at the following example.</p>
+<p><code>long_living_object.py</code></p>
+<pre><code class="python"># -*- coding: utf-8 -*-
+import sys
+import time
+from threading import Timer
+
+from PyQt5.QtCore import QTimer, QObject, pyqtSignal, pyqtProperty
+from PyQt5.QtGui import QGuiApplication
+from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterType
+
+
+class GlobalTimer(object):
+    def __init__(self, interval=1.0):
+        self._registered = set()
+        self._interval = interval
+        self._timer = None
+        self._start_timer()
+
+    def register_callback(self, callback):
+        self._registered.add(callback)
+
+    def unregister_callback(self, callback):
+        self._registered.remove(callback)
+
+    def _start_timer(self):
+        self._timer = Timer(self._interval, self._callback)
+        self._timer.start()
+
+    def _callback(self):
+        for callback in self._registered:
+            callback()
+        self._start_timer()
+
+
+Scheduler = GlobalTimer()
+
+
+class Clock(QObject):
+
+    timestampChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super(Clock, self).__init__(parent)
+        self._timestamp = time.time()
+        Scheduler.register_callback(self.tick)
+
+    @pyqtProperty(int, notify=timestampChanged)
+    def timestamp(self):
+        return self._timestamp
+
+    def tick(self):
+        self._timestamp = time.time()
+        self.timestampChanged.emit(self._timestamp)
+
+
+if __name__ == '__main__':
+    app = QGuiApplication(sys.argv)
+
+    qmlRegisterType(Clock, 'mymodule', 1, 0, Clock.__name__)
+
+    engine = QQmlApplicationEngine()
+    engine.load('./long_living_object.qml')
+
+    timer = QTimer()
+    timer.timeout.connect(lambda: None)
+    timer.start(100)
+
+    sys.exit(app.exec_())
+</code></pre>
+<p><code>long_living_object.qml</code></p>
+<pre><code class="qml">import QtQuick 2.5
+import QtQuick.Controls 2.0
+import mymodule 1.0
+
+ApplicationWindow {
+    id: root
+    visible: true
+    width: 300
+    height: 300
+
+    Loader {
+        id: clockLoader
+        anchors.centerIn: parent
+        active: showCheck.checked
+        sourceComponent: clockComponent
+    }
+
+    Component {
+        id: clockComponent
+        Label {
+            text: clock.timestamp
+
+            Clock { id: clock }
+        }
+    }
+
+    CheckBox {
+        id: showCheck
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        text: qsTr("Show clock")
+        checked: true
+    }
+}
+</code></pre>
+<p>In this example, we have <em>GlobalTimer</em> class which is instantiated as global <em>Scheduler</em> object. Inside the <em>Clock</em> class we register the <em>tick</em> function to as a callback.</p>
+<p>In QML we use the Clock object inside a Loader component, so we can create and destroy it on demand. The running application looks as follows:</p>
+<div class="wp-caption aligncenter" id="attachment_438" style="width: 289px"><a href="https://machinekoder.com/wp-content/uploads/2018/05/long_living_object.py_.png"><img alt="long_living_object window" aria-describedby="caption-attachment-438" class="size-medium wp-image-438" decoding="async" height="300" loading="lazy" sizes="(max-width: 279px) 100vw, 279px" src="/static/blog_images/how-to-not-shoot-yourself-in-the-foot-using-python-qt/long_living_object.py_-279x300.png" srcset="https://machinekoder.com/wp-content/uploads/2018/05/long_living_object.py_-279x300.png 279w, https://machinekoder.com/wp-content/uploads/2018/05/long_living_object.py_-251x270.png 251w, https://machinekoder.com/wp-content/uploads/2018/05/long_living_object.py_.png 308w" width="279"/></a><p class="wp-caption-text" id="caption-attachment-438">long_living_object window</p></div>
+<p>When we uncheck the <em>showCheck</em> checkbox, the Loader destroys our Label and Clock components. However, our global <em>Scheduler</em> object still keeps ticking and we soon see the following error in our console.</p>
+<pre><code class="shell">Exception in thread Thread-3:
+Traceback (most recent call last):
+  File "/usr/lib/python3.5/threading.py", line 914, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.5/threading.py", line 1180, in run
+    self.function(*self.args, **self.kwargs)
+  File "/how-to-not-shoot-yourself-in-the-foot/examples/long_living_object.py", line 30, in _callback
+    callback()
+  File "/how-to-not-shoot-yourself-in-the-foot/examples/long_living_object.py", line 52, in tick
+    self.timestampChanged.emit(self._timestamp)
+RuntimeError: wrapped C/C++ object of type Clock has been deleted
+</code></pre>
+<p>It turns out our Python object outlived the QObject because the global <em>Scheduler</em> object still has a reference to our <em>tick</em> instance function.</p>
+<p>Of course, we shouldn't design our application this way in the first place, but sometimes we depend on external libraries that we can't control. For example, <a href="http://wiki.ros.org/rospy">a middleware library</a> which triggers callbacks when a message arrives.</p>
+<p>So how do we fix this?</p>
+<p>Well, the solution sounds trivial, just unregister our callback when the Python object is destroyed.</p>
+<p>But wait - Python classes do not have a destructor (yes, there is <code>__del__</code> method, but our Python object still lives, doesn't it?).</p>
+<p>Luckily QObject has a signal that is triggered before destruction, the <code>destroyed</code> signal.</p>
+<p>Sounds easy, let's try:</p>
+<pre><code class="python">...
+        self._timestamp = time.time()
+        Scheduler.register_callback(self.tick)
+
+        self.destroyed.connect(self._unregister)
+
+    def _unregister(self):
+        Scheduler.unregister_callback(self.tick)
+
+    @pyqtProperty(int, notify=timestampChanged)
+        def timestamp(self):
+...
+</code></pre>
+<p>Okay, you quickly will see that it doesn't work. - Another hole in the foot.</p>
+<p>For some reason, it doesn't work to connect instance functions directly to the <code>destroyed</code> signal. (If you know why, please let me know.)</p>
+<p>However, it turns out that lambdas work fine:</p>
+<pre><code class="python">self.destroyed.connect(lambda: self._unregister())
+</code></pre>
+<p>And finally, our application doesn't throw errors anymore.</p>
+<p><strong>NOTE</strong>: Qt signals and slots are disconnected automagically on QObject destruction -&gt; therefore, if you can use Qt signals and slots instead of callback functions.</p>
+<p>Alternatively, we could also use a <a href="https://docs.python.org/2/library/weakref.html">weakref</a> in this particular example.</p>
+<h2>Conclusion</h2>
+<p>Python and Qt are a great combo. However, it is very easy to shoot yourself in the foot.</p>
+<p>To avoid such unwanted problems remember the following:</p>
+<ul>
+<li>Always keep Python in the loop.</li>
+<li>Use references to Python Qt objects carefully and cleanup correctly.</li>
+<li>Use lambdas in <code>QObject.destroyed</code>.</li>
+</ul>
+<p>I hope you have enjoyed reading this blog post and if so please subscribe and share it with your friends.</p>
+<p>Your<br/>
+Machine Koder</p>

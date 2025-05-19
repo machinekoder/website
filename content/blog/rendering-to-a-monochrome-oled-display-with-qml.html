@@ -1,0 +1,161 @@
+<!--
+{
+  "title": "Rendering to a monochrome OLED display with QML",
+  "date": "2017-03-08T21:26:11",
+  "slug": "rendering-to-a-monochrome-oled-display-with-qml",
+  "original_url": "https://machinekoder.com/rendering-to-a-monochrome-oled-display-with-qml/",
+  "featured_image": "/static/blog_images/rendering-to-a-monochrome-oled-display-with-qml/OLED-qml.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">4</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><h1>Rendering to a monochrome OLED display with QML</h1>
+<p>In this blog post, you will learn how to write QtQuick applications for an OLED display without modifying the Linux kernel.</p>
+<p>My testing system is an <a href="hhttp://www.solomon-systech.com/en/product/display-ic/oled-driver-controller/ssd1306/">SSD1306</a> based 128x64 monochrome OLED display connected via I2C to the <a href="https://getchip.com/">CHIP</a> single board computer.</p>
+<h2>Motivation</h2>
+<p>I recently came across a post on the Qt Blog about <a href="https://blog.qt.io/blog/2017/02/21/making-movies-qml/">"Making Movies with QML"</a>. The author of this blog article describes how to render a QML application into a short movie. For this purpose, the application uses offscreen rendering. It quickly came to my mind that this could also be useful to render to something which I would not consider a standard desktop display.</p>
+<p>At the same time, I'm currently working on a project which involves creating an UI for a monochrome OLED display with Gtkmm. Since I'm not a huge fan of Gtk, I thought about creating a demo project for doing something similar with QtQuick.</p>
+<p>I also had two SSD1309-based monochrome OLED displays sitting around waiting to be used in a project. The small OLED displays are super cheap (1-2$ each) and very easy to connect. A perfect fit for machine control applications with the CHIP.</p>
+<h2>Userspace I2C display driver</h2>
+<p>One of the components of the QML OLED renderer is the driver for the SSD1306 display.</p>
+<p>Thanks to the popularity of the OLED display module it was necessary for me to write a new driver. I tested a few different implementations and ended up using the <a href="https://github.com/dword1511/ui2cutils">userspace driver by dword1511</a>.</p>
+<p>The driver utilizes the Linux <a href="https://www.kernel.org/doc/Documentation/i2c/dev-interface">i2c-dev file system driver</a>. Thanks to the nature of a userspace driver we do not need to modify the kernel to install the QML OLED renderer given the <code>i2c-dev</code> kernel module is already installed.</p>
+<p>On the CHIP Debian Linux installation, I just needed to run <code>sudo modprobe i2c-dev</code> to load the driver. Installation on the BBB should be similar.</p>
+<h2>The CLI application</h2>
+<p>The <code>qml-oled-render</code> application is strongly based on the <a href="https://github.com/nezticle/qml_movie_renderer">qml-movie-renderer</a>.<br>
+The complete source code and instructions on how to use the application can be found on <a href="https://github.com/qtquickvcp/qml-oled-renderer">GitHub</a>.</br></p>
+<h3>Overview</h3>
+<p>The following diagrams show the (very simple) architecture of the application:</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-context.svg.png"><img alt="" class="aligncenter size-large wp-image-273" decoding="async" height="293" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/rendering-to-a-monochrome-oled-display-with-qml/qml-oled-context.svg-1024x469.png" srcset="https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-context.svg-1024x469.png 1024w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-context.svg-300x138.png 300w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-context.svg-768x352.png 768w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-context.svg-360x165.png 360w" width="640"/></a></p>
+<p>The first diagram shows the system context. The CLI application is intended to be used by the developer as a tool to render QML applications to the OLED screen.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-components.svg.png"><img alt="" class="aligncenter size-large wp-image-272" decoding="async" height="394" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/rendering-to-a-monochrome-oled-display-with-qml/qml-oled-components.svg-1024x630.png" srcset="https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-components.svg-1024x630.png 1024w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-components.svg-300x185.png 300w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-components.svg-768x473.png 768w, https://machinekoder.com/wp-content/uploads/2017/03/qml-oled-components.svg-360x222.png 360w" width="640"/></a></p>
+<p>The second diagram shows the components of the QML OLED renderer.</p>
+<p>To be noted as this point should be that I tried to follow the <a href="http://www.codingthearchitecture.com/2014/08/24/c4_model_poster.html">C4 method for describing software architecture</a> by Simon Brown.</p>
+<h3>Some implementation details</h3>
+<p>I stripped away the GUI part of the application and added a CLI instead.</p>
+<pre><code class="cpp">QCommandLineParser parser;
+parser.setApplicationDescription("Renders QML applications to a SSD1306 OLED display");
+parser.addHelpOption();
+parser.addPositionalArgument("source", "QML source file");
+parser.addOptions({
+                      {{"w", "width"}, "OLED screen width", "weight"},
+                      {{"h", "height"}, "OLED screen height", "height"},
+                      {{"b", "bus"}, "I2C bus to which the OLED is connected", "bus"},
+                      {{"a", "address"}, "I2C address of the OLED screen", "address"},
+                      {{"f", "fps"}, "Number of frames to render per second", "fps"}
+                  });
+
+parser.process(app);
+</code></pre>
+<p>Furthermore, I exchanged the best effort rendering approach of the example by a time triggered rendering. Using the timer as a trigger for the frame rendering process, we can ensure that the QML application generates exactly x frames per seconds.</p>
+<pre><code class="cpp">// Start the renderer
+m_renderTimer = new QTimer;
+m_renderTimer-&gt;setInterval(renderInterval);
+connect(m_renderTimer, &amp;QTimer::timeout, this, &amp;OledRenderer::renderNext);
+m_renderTimer-&gt;start();
+renderNext();
+</code></pre>
+<p>As preparation for the rendered <em>QImage</em>, it is necessary to convert the image to monochrome colors before sending it to the OLED display. Qt provides several dithering-based approaches and a fast threshold-based method. I chose to use the threshold-based conversion since this delivered the best results in my test application.</p>
+<pre><code class="cpp">OledRenderer renderer;
+QObject::connect(&amp;renderer, &amp;OledRenderer::imageRendered, [&amp;driver](const QImage &amp;image) {
+    const auto mono = image.convertToFormat(QImage::Format_Mono, Qt::MonoOnly | Qt::ThresholdDither);
+    driver.writeImage(mono);
+});
+</code></pre>
+<h2>Testing and Rendering Performance</h2>
+<p>I tested the application with the following hello world QML UI:</p>
+<pre><code class="qml"><br/>import QtQuick 2.6
+
+Item {
+    id: root
+    visible: true
+    width: 128
+    height: 64
+
+    Rectangle {
+        property bool isRight: false
+
+        id: indicator
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 5
+        x: (isRight ? 5 : (root.width - width) - 5)
+        width: 15
+        height: width
+        radius: width / 2
+        color: "black"
+
+        Behavior on x {
+            PropertyAnimation {
+                duration: 500
+            }
+        }
+
+        Timer {
+            id: moveTimer
+            running: true
+            repeat: true
+            interval: 500
+            onTriggered: indicator.isRight = !indicator.isRight
+        }
+    }
+
+    Text {
+        anchors.centerIn: parent
+        text: "Hello World!"
+    }
+}
+</code></pre>
+<p>The QML application features a text element, a rectangle, and an animation as can be seen in the next image.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml.jpg"><img alt="" class="aligncenter size-large wp-image-271" decoding="async" height="532" loading="lazy" sizes="(max-width: 640px) 100vw, 640px" src="/static/blog_images/rendering-to-a-monochrome-oled-display-with-qml/OLED-qml-1024x851.jpg" srcset="https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml-1024x851.jpg 1024w, https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml-300x249.jpg 300w, https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml-768x638.jpg 768w, https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml-325x270.jpg 325w, https://machinekoder.com/wp-content/uploads/2017/03/OLED-qml.jpg 1712w" width="640"/></a></p>
+<p>With a framerate of 10 frames per seconds and the xcb Qt platform plugin, I measured around 5% CPU utilization on the CHIP mini computer. Considering that not native OpenGL platform plugin was used, I consider as an acceptable performance.</p>
+<p>I also tested the QML OLED renderer with a small <a href="https://github.com/qtquickvcp/qtquickvcp">QtQuickVCp</a> application.</p>
+<pre><code class="qml">import QtQuick 2.6
+import Machinekit.HalRemote 1.0
+import Machinekit.HalRemote.Controls 1.0
+
+HalApplicationWindow {
+    id: root
+    width: 128
+    height: 64
+    name: "motor-control"
+
+    Rectangle {
+        property bool isRight: false
+
+        id: indicator
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 5
+        x: (isRight ? 2 : (root.width - width) - 2)
+        width: 10
+        height: width
+        radius: width / 2
+        color: "black"
+
+    }
+
+    HalPin {
+        id: cmdVelPin
+        name: "cmd-vel"
+        type: HalPin.Float
+        direction: HalPin.IO
+    }
+
+    HalPin {
+        id: fbVelPin
+        name: "fb-vel"
+        type: HalPin.Float
+        direction: HalPin.In
+    }
+
+
+    Text {
+        anchors.centerIn: parent
+        text:  "Cmd-Vel: " + cmdVelPin.value.toFixed(2) + "\nFb-Vel: " + fbVelPin.value.toFixed(3)
+        font.family: "Mono"
+    }
+}
+</code></pre>
+<p>Unfortunately, the CPU usage increased to about 30%. Theoretically, the update rate should no have increased so the rendering performance difference must be a result of using the QtQuickVcp components. Figuring out the exact source of the additional rendering overhead is something that I plan to do in the future.</p>
+<h2>Conclusion</h2>
+<p>For me, the project proves very useful as an example that QtQuick and QML can be used for this application.</p>
+<p>Furthermore, the resulting tool allows writing QtQuickVcp UIs also for embedded projects that only feature a monochrome OLED display. This means it is now possible to write UIs for desktop, tablet and an OLED display using the same technology.</p>
+<p>I hope you found this blog post useful and I'm looking forward to hearing your feedback.<br/>
+Your Machine Koder</p>

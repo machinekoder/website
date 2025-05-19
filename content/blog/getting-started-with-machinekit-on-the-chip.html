@@ -1,0 +1,137 @@
+<!--
+{
+  "title": "Getting started with Machinekit on the CHIP",
+  "date": "2016-09-22T06:30:11",
+  "slug": "getting-started-with-machinekit-on-the-chip",
+  "original_url": "https://machinekoder.com/getting-started-with-machinekit-on-the-chip/",
+  "featured_image": "/static/blog_images/getting-started-with-machinekit-on-the-chip/IMG_2279.jpg"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">5</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>This blog post is about getting started with Machinekit on the <a href="https://getchip.com/pages/chip">Nexthing CHIP</a>.</p>
+<p>With a price of 9$; the CHIP is the <a href="http://makezine.com/2015/11/28/chip-vs-pi-zero/">cheapest single board computer</a> with wifi and flash memory on the market. The low price and easy availability make the CHIP an ideal platform for low-budget motion-control applications.</p>
+<p>This blog post focuses on the user perspective of using Machinekit on the CHIP. If you are also interested in how the CHIP GPIO driver works please take a look the <a href="https://machinekoder.com/?p=67">earlier blog post</a>.</p>
+<h2>Why using Machinekit?</h2>
+<p>Machinekit is a machine control software platform. It is available across a wide range of hardware platforms and real-time environments and delivers excellent performance at low cost.</p>
+<p>One key feature of Machinekit is the HAL component architecture, an easy to use circuit model that <a href="http://www.machinekit.io/docs/hal/components/">includes over 150 building blocks</a> for digital logic, motion, control loops, signal processing, and hardware drivers.</p>
+<p>Machinekit makes it easy to build real-time Linux applications. Choosing real-time Linux as platform for your project you can use the full spectrum of open source software and at the same time build hard real-time motion control applications.</p>
+<p>Machinekit supports local and networked UI options, including mobile platforms like phones or tablets.</p>
+<p>Machinekit is open source and has an <a href="https://groups.google.com/forum/#!forum/machinekit">active and inspiring community</a> which is eager to help newcomers.</p>
+<p>Summarized, if you want to use your CHIP to interface with the real world, you should consider using Machinekit.</p>
+<h2>Setup the CHIP for Machinekit</h2>
+<p>In this tutorial, I assume you are using the CHIP in a headless setup. Headless means the CHIP is connected to your computer via a (USB) serial terminal or SSH. For more details, please take a look at the <a href="http://docs.getchip.com/chip.html#headless-chip">CHIP documentation</a>.</p>
+<p>First of all, you need to flash the 4.4 Debian image on your CHIP using the <a href="http://flash.getchip.com/">Online Flasher</a>. I used the Headless 4.4 image.</p>
+<p>If your CHIP is already connected to the internet, you can skip ahead to <a href="#name">the installation section</a>.</p>
+<h3>Connect to WiFi</h3>
+<p>First of all, you need to connect to your CHIP to the web. To achieve this you have to connect the CHIP to a WiFi network.</p>
+<p>First, list the available networks.</p>
+<pre><code class="bash">nmcli device wifi list
+</code></pre>
+<p>You should see a list of available networks.</p>
+<pre><code class="bash">*  SSID      MODE   CHAN  RATE       SIGNAL  BARS  SECURITY
+*  NextThing HQ    Infra  11    54 Mbit/s  100     ????  --
+   NextThing Shop  Infra  6     54 Mbit/s  30      ?___  WPA1 WPA2
+   2WIRE533        Infra  10    54 Mbit/s  44      ??__  WPA1 WPA2
+</code></pre>
+<p>Next, connect a network. Without password:</p>
+<pre><code class="bash">sudo nmcli device wifi connect '(your wifi network name/SSID)' ifname wlan0
+</code></pre>
+<p>Or with password:</p>
+<pre><code class="bash">sudo nmcli device wifi connect '(your wifi network name/SSID)' password '(your wifi password)' ifname wlan0
+</code></pre>
+<p>For more info about the CHIP and WiFi please take a look at <a href="http://docs.getchip.com/chip.html#wifi-connection">the docs</a>.</p>
+<p>Once connected you are ready to install Machinekit.</p>
+<p><a name="install"></a></p>
+<h3>Install Machinekit packages and RT-PREEMPT kernel</h3>
+<p>Installing Machinekit on the CHIP is as easy as executing the following line:</p>
+<pre><code class="bash">curl -sSL http://bit.ly/2cyf0At | sudo -E bash -
+</code></pre>
+<p>Behind this link, you can find an install script located on GitHub in <a href="https://github.com/machinekoder/machinekit-chip">this repository</a>.</p>
+<p>This script will download and install Machinekit and an RT-PREEMPT kernel for the CHIP 4.4 images. If you run the script on the PocketCHIP it will install the POSIX-thread flavor of Machinekit.</p>
+<p><em>Caution:</em> During the installation, the script will download a few hundred megabytes of data.</p>
+<p>Furthermore, the installation will take some time and automatically reboot your CHIP.</p>
+<h2>Testing Machinekit</h2>
+<p>Now it is time to download and run the first Machinekit configuration.</p>
+<p>First, install git:</p>
+<pre><code class="bash">sudo apt install git
+</code></pre>
+<p>Then, clone the <code>hal_hello_chip</code> configuration and execute the <code>run.py</code>:</p>
+<pre><code class="bash">cd
+mkdir repos
+cd repos
+git clone https://github.com/machinekoder/hal_hello_chip
+cd hal_hello_chip
+./run.py &amp;
+</code></pre>
+<p>Now you should have a running Machinekit instance. To verify your setup is working run:</p>
+<pre><code class="bash">halcmd show pin
+</code></pre>
+<p>You should see something similar to this:</p>
+<pre><code>Component Pins:
+  Comp   Inst Type  Dir         Value  Name                                             Epsilon         Flags
+    73        bit   OUT         FALSE  chip_gpio.in-04                                                  0
+    73        bit   IN          FALSE  chip_gpio.in-04.invert                                           0
+    73        bit   OUT         FALSE  chip_gpio.in-05                                                  0
+    73        bit   IN          FALSE  chip_gpio.in-05.invert                                           0
+    73        bit   OUT         FALSE  chip_gpio.in-06                                                  0
+    73        bit   IN          FALSE  chip_gpio.in-06.invert                                           0
+    73        bit   OUT         FALSE  chip_gpio.in-07                                                  0
+    73        bit   IN          FALSE  chip_gpio.in-07.invert                                           0
+    73        bit   IN          FALSE  chip_gpio.out-00                                                 0 &lt;== square
+    73        bit   IN          FALSE  chip_gpio.out-00.invert                                          0
+    73        bit   IN          FALSE  chip_gpio.out-01                                                 0
+    73        bit   IN          FALSE  chip_gpio.out-01.invert                                          0
+    73        bit   IN          FALSE  chip_gpio.out-02                                                 0
+    73        bit   IN          FALSE  chip_gpio.out-02.invert                                          0
+    73        bit   IN          FALSE  chip_gpio.out-03                                                 0
+    73        bit   IN          FALSE  chip_gpio.out-03.invert                                          0
+    73        s32   OUT          3625  chip_gpio.read.time                                              0
+    73        s32   OUT          3875  chip_gpio.write.time                                             0
+   102        float IN              1  siggen.0.amplitude                               0.000010        0
+   102        bit   OUT         FALSE  siggen.0.clock                                                   0 ==&gt; square
+   102        float OUT    -0.9921147  siggen.0.cosine                                  0.000010        0
+   102        float IN             10  siggen.0.frequency                               0.000010        0
+   102        float IN              0  siggen.0.offset                                  0.000010        0
+   102        float OUT         -0.04  siggen.0.sawtooth                                0.000010        0
+   102        float OUT     0.1253332  siggen.0.sine                                    0.000010        0
+   102        float OUT             1  siggen.0.square                                  0.000010        0
+   102        float OUT         -0.88  siggen.0.triangle                                0.000010        0
+   102        s32   OUT          7958  siggen.0.update.time                                             0
+</code></pre>
+<p>Congratulations, the installation is complete! Now you are ready to use <a href="http://machinekit.io">Machinekit</a></p>
+<h2>CHIP GPIO</h2>
+<p>A core part of Machinekit platform support is a HAL GPIO driver. I have presented a HAL GPIO driver in <a href="https://machinekoder.com/?p=67">an earlier blog post</a>.</p>
+<p><a href="https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts.jpg"><img alt="chip_pinouts" class="alignnone size-full wp-image-70" decoding="async" height="438" loading="lazy" sizes="(max-width: 600px) 100vw, 600px" src="/static/blog_images/getting-started-with-machinekit-on-the-chip/chip_pinouts.jpg" srcset="https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts.jpg 600w, https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts-300x219.jpg 300w, https://machinekoder.com/wp-content/uploads/2016/09/chip_pinouts-360x263.jpg 360w" width="600"/></a></p>
+<p>The <code>hal_chip_gpio</code> component controls the <code>CSIDn</code> pins rather than the <code>XIO-Pn</code> pins for performance reasons.</p>
+<p>You can use the driver in a HAL configuration using the following command:</p>
+<pre><code class="python">rt.loadrt('hal_chip_gpio', output_pins='0,1,2,3', input_pins='4,5,6,7')
+</code></pre>
+<p>The <code>output_pins</code> parameter determines which pins to use as output. The <code>input_pins</code> determines which pins to use as input.</p>
+<p>You can connect these pins for example to <a href="http://www.machinekit.io/docs/man/man9/pwmgen/">software PWM</a> or <a href="http://www.machinekit.io/docs/man/man9/stepgen/">stepper generators</a>. I also tested the <a href="http://www.machinekit.io/docs/man/man9/encoder/">software encoder component</a> with the CHIP.</p>
+<p>During my first tests with the CHIP, I observed that the performance is good enough to for most basic motion control applications.</p>
+<h2>Setup USB OTG networking</h2>
+<p>I found it useful to have a non-wireless connection with the CHIP. If you want to use USB networking on your CHIP, you can use the following commands.</p>
+<pre><code class="bash">sudo editor /etc/network/interfaces.d/usb0
+</code></pre>
+<p>And insert</p>
+<pre><code>auto usb0
+iface usb0 inet static
+address 192.168.7.1
+netmask 255.255.255.0
+
+</code></pre>
+<p>Start the network by running:</p>
+<pre><code class="bash">sudo ifup usb0
+</code></pre>
+<p>On your host computer, you have to manually configure the network adapter to use the static IPv4 address <code>192.168.7.2</code> and netmask <code>255.255.255.0</code>.</p>
+<h2>How to continue</h2>
+<p>Now it is time for you to explore Machinekit. The best place to start with learning Machinekit is the <a href="http://machinekit.io">Machinekit documentation</a>.</p>
+<p>Just type the topic you are interested in into the search bar.</p>
+<p><strong>Note:</strong> a lot of the documentation is still using the old style <code>.hal</code> files and syntax. However, I recommend you using the newer Python API.</p>
+<p>I know that the learning curve for Machinekit might seem very steep in the first place. But you will soon see that learning to use Machinekit pays off.</p>
+<p>Please stay tuned for more beginner blog posts on this blog. I will dedicate some future blog posts on practical examples using Machinekit and the CHIP.</p>
+<h2>Summary</h2>
+<p>In this blog post, you learned how to install Machinekit on the CHIP.</p>
+<p>Furthermore, the article explains how to configure different types of networking on the CHIP. Moreover, the post introduces an short example HAL configuration and the CHIP GPIO HAL component.</p>
+<p>I hope you found this article useful, and I'm looking forward to your feedback.</p>
+<p>Your<br>
+Machine Koder</br></p>

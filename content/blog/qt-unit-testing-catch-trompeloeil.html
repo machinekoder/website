@@ -1,0 +1,335 @@
+<!--
+{
+  "title": "Qt Unit Testing with Catch and Trompeloeil",
+  "date": "2017-10-26T12:01:36",
+  "slug": "qt-unit-testing-catch-trompeloeil",
+  "original_url": "https://machinekoder.com/qt-unit-testing-catch-trompeloeil/",
+  "featured_image": "/static/blog_images/qt-unit-testing-catch-trompeloeil/title-image.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">8</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this blog post, you will learn how to do <a href="https://qt.io">Qt</a> unit testing with <a href="https://github.com/philsquared/Catch">Catch</a> and <a href="https://github.com/rollbear/trompeloeil">Trompeloeil</a>.</p>
+<p>I'll explain how to this with the qmake build system if you prefer <a href="https://cmake.org">CMake</a> you can follow <a href="https://stackoverflow.com/questions/34896891/catch-lib-unit-testing-and-ctest-cmake-integration">this guide</a>. However, some of the details I describe here such as how to use Catch for testing event-driven applications do apply for CMake as well.</p>
+<p>Hint: If you are more into diving straight into the code you can skip to the <a href="https://github.com/machinekoder/qt-qmake-catch-and-trompeloeil-seed">seed project on GitHub</a></p>
+<h2>Why bother to write Unit Tests?</h2>
+<p>Especially if you are relatively new to software engineering or you program software as a hobby you might wonder why you should write unit tests anyway.</p>
+<p>I myself have started to do proper unit testing only very recently, mostly because unit testing always seemed to be unnecessarily hard to do with not a lot of benefits.</p>
+<p>However, I have recently read <a href="">"The Clean Coder" by Uncle Bob</a> and <a href="http://developertesting.rocks/book/">"Developer Testing"</a> which made change my opinion.</p>
+<p>In fact, I discovered that unit testing is to business logic implementation, what live coding is to UI development. In my opinion, the shorter feedback loops drastically improve productivity while coding and also the maintainability of software in the long term.</p>
+<p>If you have not tried <a href="">Test Driven Development (TDD)</a> I encourage you to do so. It looks like an unnecessary overhead in the beginning, but I promise you it pays off very quickly.</p>
+<h2>Why should I use Catch when there is Qt Test?</h2>
+<p>There are many reasons why I prefer using Catch over Qt Test.</p>
+<p>Catch is a modern unit testing framework based on C++11 and up. Many of its features outpace Qt Test by far. Most important for me is that Catch tests are structured in a way that reduces redundancy between test cases.</p>
+<p>Moreover, one of the key features of Catch is <a href="https://en.wikipedia.org/wiki/Behavior-driven_development">Behavior-driven development (BDD) testing</a> meaning tests are structured in a way you would naturally describe a product feature.</p>
+<p>Unfortunately, Catch does not support the <a href="https://github.com/cucumber/cucumber/wiki/Gherkin">Gherkin</a> language yet such the Python BDD testing framework <a href="http://pythonhosted.org/behave/">behave</a>. Nevertheless, the BDD testing feature is great and by far the best implementation I have seen so for C++.</p>
+<p>In fact, Catch is so easy to use that you will start to write tests more frequently.</p>
+<h2>What about Trompeloeil?</h2>
+<p>Once we start unit testing our application we soon require test doubles such as stubs, fakes, and mocks.</p>
+<p>Since writing test doubles by hand is a cumbersome task, I recommend using a mock framework.</p>
+<p><a href="https://github.com/rollbear/trompeloeil">Trompeloeil</a> stands out of the crowd because it uses modern C++14 features and it integrates nicely with Catch. Moreover, it also a header only library such as Catch.</p>
+<p>Again, the idea is to make unit testing as easy possible so people will not shy back from doing it.</p>
+<h2>Setting up Qt for Unit Testing</h2>
+<p>First, let's start by creating a "Qt Subdir Project".</p>
+<div class="wp-caption aligncenter" id="attachment_362" style="width: 898px"><a href="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch2.png"><img alt="Select Subdirs Project" aria-describedby="caption-attachment-362" class="size-full wp-image-362" decoding="async" height="551" loading="lazy" sizes="(max-width: 888px) 100vw, 888px" src="/static/blog_images/qt-unit-testing-catch-trompeloeil/qt-catch2.png" srcset="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch2.png 888w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch2-300x186.png 300w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch2-768x477.png 768w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch2-360x223.png 360w" width="888"/></a><p class="wp-caption-text" id="caption-attachment-362">Select Subdirs Project</p></div>
+<p>Qt Creator will ask right away for creating a new subproject. We choose a "Qt Console Application" here. I named it <em>app</em>.</p>
+<div class="wp-caption aligncenter" id="attachment_361" style="width: 898px"><a href="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch1.png"><img alt="Select Qt Console Application" aria-describedby="caption-attachment-361" class="size-full wp-image-361" decoding="async" height="551" loading="lazy" sizes="(max-width: 888px) 100vw, 888px" src="/static/blog_images/qt-unit-testing-catch-trompeloeil/qt-catch1.png" srcset="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch1.png 888w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch1-300x186.png 300w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch1-768x477.png 768w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch1-360x223.png 360w" width="888"/></a><p class="wp-caption-text" id="caption-attachment-361">Select Qt Console Application</p></div>
+<p>Next, we create another subproject for our tests called <em>tests</em> of type "Auto Test Project".</p>
+<div class="wp-caption aligncenter" id="attachment_364" style="width: 898px"><a href="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4.png"><img alt="Select Auto Test Project" aria-describedby="caption-attachment-364" class="size-full wp-image-364" decoding="async" height="551" loading="lazy" sizes="(max-width: 888px) 100vw, 888px" src="/static/blog_images/qt-unit-testing-catch-trompeloeil/qt-catch4.png" srcset="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4.png 888w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-300x186.png 300w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-768x477.png 768w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-360x223.png 360w" width="888"/></a><p class="wp-caption-text" id="caption-attachment-364">Select Auto Test Project</p></div>
+<p>In the same wizard, Qt Creator asks for creating the first test. In this window, we select "Qt Test" and "Requires QApplication".</p>
+<div class="wp-caption aligncenter" id="attachment_365" style="width: 818px"><a href="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-1.png"><img alt="Project and Test Information Wizard Settings" aria-describedby="caption-attachment-365" class="size-full wp-image-365" decoding="async" height="531" loading="lazy" sizes="(max-width: 808px) 100vw, 808px" src="/static/blog_images/qt-unit-testing-catch-trompeloeil/qt-catch4-1.png" srcset="https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-1.png 808w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-1-300x197.png 300w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-1-768x505.png 768w, https://machinekoder.com/wp-content/uploads/2017/10/qt-catch4-1-360x237.png 360w" width="808"/></a><p class="wp-caption-text" id="caption-attachment-365">Project and Test Information Wizard Settings</p></div>
+<p>Now we are ready for unit testing out application Qt Test.</p>
+<h2>Converting the Qt Test into a Catch Test</h2>
+<p>Now it's time to download the Catch and Trompeloeil header only libraries.</p>
+<p>We will add both libraries to the 3rdparty directory of our project. This way, any developer can check out the project with a single command. If you are uneasy with the idea of adding 3rdparty libraries to your source tree I recommend you to take a look at the C++ package manager <a href="https://conan.io/">Conan</a>.</p>
+<h4>Download the Header Files</h4>
+<p>First, create a new folder in your project root called <code>3rdparty/catch</code>.</p>
+<p>Then download the single header library from <a href="https://github.com/philsquared/Catch">GitHub</a>. Make sure to <strong>select a tag</strong> before heading to the library download, else you might end up with a development version of Catch.</p>
+<p>A sane download link looks as follows: <a href="https://raw.githubusercontent.com/philsquared/Catch/v1.10.0/single_include/catch.hpp">https://raw.githubusercontent.com/philsquared/Catch/v1.10.0/single_include/catch.hpp</a></p>
+<p>Repeat this step for <a href="https://github.com/rollbear/trompeloeil">Trompeloil</a>:</p>
+<p>Download the single header library to <code>3rdparty/trompeloeil</code>.</p>
+<p>Download link: <a href="https://raw.githubusercontent.com/rollbear/trompeloeil/v28/include/trompeloeil.hpp">https://raw.githubusercontent.com/rollbear/trompeloeil/v28/include/trompeloeil.hpp</a></p>
+<h4>Add .pri Files</h4>
+<p>Okay, almost there. Now we need to add <code>a .pri</code> file for both, Catch and Trompeloeil.</p>
+<p>Create a file called <code>catch.pri</code> in the <code>3rdparty/catch</code> subdirectory and a file called <code>trompeloeil.pri</code> in the <code>3rdparty/trompeloeil</code> directory with the following content.</p>
+<pre><code class="qmake">INCLUDEPATH += $$PWD
+</code></pre>
+<h4>Integrate Trompeloil with Catch</h4>
+<p>Trompeloeil supports custom error reporters which can be used to integrate it into different unit testing frameworks.</p>
+<p>We use the example error reporter <a href="https://github.com/rollbear/trompeloeil/blob/master/docs/CookBook.md/#adapt_catch">provided on GitHub</a> and save in our <code>3rdparty/trompeloeil</code> directory as <code>trompeloeil_catch.hpp</code>.</p>
+<pre><code class="cpp">#ifndef TROMPELOEIL_CATCH_HPP
+#define TROMPELOEIL_CATCH_HPP
+#include "trompeloeil.hpp"
+#include "catch.hpp"
+
+namespace trompeloeil
+{
+  template &lt;&gt;
+  void reporter&lt;specialized&gt;::send(
+    severity s,
+    const char* file,
+    unsigned long line,
+    const char* msg)
+  {
+    std::ostringstream os;
+    if (line) os &lt;&lt; file &lt;&lt; ':' &lt;&lt; line &lt;&lt; '\n';
+    os &lt;&lt; msg;
+    auto failure = os.str();
+    if (s == severity::fatal)
+    {
+      FAIL(failure);
+    }
+    else
+    {
+      CAPTURE(failure);
+      CHECK(failure.empty());
+    }
+  }
+}
+
+#endif // TROMPELOEIL_CATCH_HPP
+</code></pre>
+<h4>Integrate Catch into the Test Project</h4>
+<p>Next, we need to modify our <code>tests.pro</code> file of the tests subproject.</p>
+<ul>
+<li>Include our <code>.pri</code> files.</li>
+<li>Add C++14 support for trompeloeil.</li>
+<li>Include our app directory.</li>
+<li>Add a <code>main.cpp</code> for Catch.</li>
+</ul>
+<p>The file looks as follows after the modifications:</p>
+<pre><code class="qmake">QT += testlib
+QT -= gui
+
+CONFIG += qt console warn_on depend_includepath testcase
+CONFIG -= app_bundle
+CONFIG += c++14
+
+TEMPLATE = app
+
+include(../3rdparty/catch/catch.pri)
+include(../3rdparty/trompeloeil/trompeloeil.pri)
+
+PROJECT_DIR = $$PWD/../app
+
+INCLUDEPATH += $$PROJECT_DIR
+
+SOURCES +=  \
+    main.cpp \
+    tst_apptests.cpp
+</code></pre>
+<h4>Add a main.cpp</h4>
+<p>Catch can be configured to use a test runner. This type of setup is necessary to integrate Catch with the Qt event loop. It also allows us to utilize features of Qt Test within our Catch unit tests.</p>
+<p><code>main.cpp</code></p>
+<pre><code class="cpp">#define CATCH_CONFIG_RUNNER
+#include &lt;catch.hpp&gt;
+#include &lt;trompeloeil_catch.hpp&gt;
+
+#include &lt;QCoreApplication&gt;
+#include &lt;QtTest&gt;
+
+int main( int argc, char* argv[] )
+{
+    QCoreApplication a(argc, argv);
+
+    QTEST_SET_MAIN_SOURCE_PATH
+    int result = Catch::Session().run( argc, argv );
+
+    return ( result &lt; 0xff ? result : 0xff );
+}
+</code></pre>
+<h4>Add a Hello World Test Case</h4>
+<p>Last but not least we need to add our first "Hello World" Catch Test Case.</p>
+<p>For this purpose, we rewrite the <code>tst_apptest.cpp</code> file created by Qt Creator. Additional test cases go into additional source files.</p>
+<p><code>tst_apptest.cpp</code></p>
+<pre><code class="cpp">#include &lt;catch.hpp&gt;
+#include &lt;trompeloeil.hpp&gt;
+
+#include &lt;iostream&gt;
+
+#include &lt;QSignalSpy&gt;
+
+extern template struct trompeloeil::reporter&lt;trompeloeil::specialized&gt;;
+
+
+TEST_CASE("Application Tests", "[app]")
+{
+
+    SECTION("Hello World") {
+        REQUIRE(true);
+    }
+}
+</code></pre>
+<p>That's it. Now when we hit run in Qt Creator we should get following output by Catch:</p>
+<pre><code>Starting /home/alexander/projects/build-qt-qmake-catch-and-trompeloeil-seed-Desktop_Qt_5_10_0_GCC_64bit2-Debug/tests/tests...
+===============================================================================
+All tests passed (1 assertion in 1 test case)
+
+/home/alexander/projects/build-qt-qmake-catch-and-trompeloeil-seed-Desktop_Qt_5_10_0_GCC_64bit2-Debug/tests/tests exited with code 0
+</code></pre>
+<h2>Writing Qt Unit Tests with Catch</h2>
+<p>Now that we have everything ready and set up it is time to write our first unit test with Catch that involves classes from our application.</p>
+<p>I will not copy the code of the classes under test over here. If you want to study the code please check out the <a href="">GitHub repository</a>.</p>
+<h4>Adding the Application Sources to the Test project</h4>
+<p>Let's start by including the application source code into our test. The optimum for doing this would be to create a static library containing the application code. That's extremely straightforward with CMake, but not so much with qmake and, therefore, I will take the alternative approach in this example.</p>
+<p>For this purpose, we add a few additional lines to the <code>tests.pro</code> file.</p>
+<pre><code class="qmake">PROJECT_SOURCES = \
+    $$PROJECT_DIR/order.cpp \
+    $$PROJECT_DIR/warehouse.cpp \
+    $$PROJECT_DIR/viennawarehouse.cpp \
+    $$PROJECT_DIR/autoorder.cpp
+
+PROJECT_HEADERS = \
+    $$PROJECT_DIR/order.h \
+    $$PROJECT_DIR/warehouse.h \
+    $$PROJECT_DIR/viennawarehouse.h \
+    $$PROJECT_DIR/autoorder.h
+</code></pre>
+<p>and</p>
+<pre><code class="qmake">SOURCES +=  \
+     main.cpp \
+     tst_apptests.cpp \
+     $$PROJECT_SOURCES
+
+HEADERS += \
+    $$PROJECT_HEADERS
+</code></pre>
+<h4>Testing Non-Event-Driven Parts of the Code</h4>
+<p>First of all, I will start with tests that do not require Qt's event loop to be running. This should be straightforward for you if you are already familiar with unit testing C++ code.</p>
+<p>Okay, so lets by testing if our <em>ViennaWarehouse</em> has enough Tafelspitz and Schnitzel. I will use the classical section based approach for this purpose.</p>
+<p>First of all, we want to make sure our ViennaWarehouse can provide less than 15, exactly 15 and not more 15 Schnitzels after initialization. (Let's assume our requirements state that the warehouse always starts with 15 Schnitzel from yesterday).</p>
+<pre><code class="cpp">TEST_CASE("ViennaWarehouse starts with exactly 15 Schnitzel", "[app]")
+{
+    ViennaWarehouse warehouse;
+
+    SECTION("Checking for less than 15 Schnitzel works") {
+        REQUIRE(warehouse.hasInventory("Schnitzel", 10));
+    }
+
+    SECTION("Checking for exactly 15 Schnitzel works") {
+        REQUIRE(warehouse.hasInventory("Schnitzel", 15));
+    }
+
+    SECTION("Checking for more than 15 Schnitzel fails") {
+        REQUIRE(warehouse.hasInventory("Schnitzel", 200) == false);
+    }
+}
+</code></pre>
+<p>As you can see, we already save a lot of time, since we need to instantiate the <em>ViennaWarehouse</em> only once for all our test sections. However, the instantiation of <em>ViennaWarehouse</em> is run once for each section thanks to the macro and C++11 magic in Catch.</p>
+<p>Next, let's use the mocking power of trompeloeil to the test the <em>Order</em> class.</p>
+<p>First, we create a new mock class that inherits from our abstract <em>Warehouse</em> class. The macros and C++14 magic behind trompeloeil make this very convient and readable.</p>
+<pre><code class="cpp">class WarehouseMock: public Warehouse
+{
+public:
+    MAKE_CONST_MOCK2(hasInventory, bool(const QString&amp;, int));
+    MAKE_MOCK2(remove, bool(const QString&amp;, int));
+};
+</code></pre>
+<p>Using this newly created mock class we can now easily test our <em>Order</em> class.</p>
+<pre><code class="cpp">TEST_CASE("Filling Order from Warehouse works", "[app]")
+{
+    Order order("Schnitzel", 50u);
+    WarehouseMock warehouse;
+
+    SECTION("filling removes inventory if in stock") {
+        REQUIRE_CALL(warehouse, hasInventory("Schnitzel", 50))
+                .RETURN(true);
+        REQUIRE_CALL(warehouse, remove("Schnitzel", 50))
+                .RETURN(true);
+
+        order.fill(warehouse);
+
+        REQUIRE(order.isFilled());
+    }
+
+    SECTION("filling does not remove inventory if not in stock") {
+        REQUIRE_CALL(warehouse, hasInventory("Schnitzel", 50))
+                .RETURN(false);
+
+        order.fill(warehouse);
+
+        REQUIRE_FALSE(order.isFilled());
+    }
+}
+</code></pre>
+<p>We see that writing the tests is now down to a few lines of test code. The big bonus here is that the tests are very readable.</p>
+<p>Also, when we hit an error we get very clear and concise error messages.</p>
+<pre><code>  failure := "../../qt-qmake-catch-and-trompeloeil-seed/tests/tst_apptests.
+  cpp:44
+  Unfulfilled expectation:
+  Expected warehouse.remove("Schnitzel", 50) to be called once, actually never
+  called
+    param  _1 == Schnitzel
+    param  _2 == 50
+  "
+</code></pre>
+<h4>Testing Event-Driven Parts of the Code</h4>
+<p>When writing Qt code you very likely make use of Qt's fantastic event system. Event-driven programming is my opinion a very good strategy to keep the complexity of a system low.</p>
+<p>However, event-driven systems may not be straightforward to test without Qt's test system. The good news is we can combine Qt Test features with Catch unit tests.</p>
+<p>It is important to understand that Qt's signals and slots require the Qt event loop to be running. In fact, in Qt every thread has it's own event loop. We can start our own event loop by using <code>QEventLoop</code>.</p>
+<p>However, it's more convenient to use the Qt event loop created by our <code>QCoreApplication</code> in the <code>main.cpp</code> of our test application. Now we can use the Qt event loop as we would for writing our Qt tests.</p>
+<p>Let's take a look at how we could test the <em>AutoOrder</em> class:</p>
+<pre><code class="cpp">TEST_CASE("Automatically ordering wares with AutoOrder works", "[app")
+{
+    WarehouseMock warehouse;
+
+    GIVEN("We have an auto order of 1 Tafelspitz") {
+        Order order("Tafelspitz", 1);
+        AutoOrder autoOrder(&amp;warehouse, &amp;order);
+        QSignalSpy waresOrderedSpy(&amp;autoOrder, &amp;AutoOrder::waresOrdered);
+        QSignalSpy outOfWaresSpy(&amp;autoOrder, &amp;AutoOrder::outOfWares);
+
+        WHEN("We start the auto order") {
+            autoOrder.startOrdering(1);
+
+        AND_WHEN("we have enough Tafelspitz in stock") {
+            REQUIRE_CALL(warehouse, hasInventory("Tafelspitz", 1))
+                    .RETURN(true);
+            REQUIRE_CALL(warehouse, remove("Tafelspitz", 1))
+                    .RETURN(true);
+
+            THEN("we are notified about the order") {
+                waresOrderedSpy.wait(10);
+
+                REQUIRE(waresOrderedSpy.count() == 1);
+            }
+        }
+
+        AND_WHEN("we don't have enough Tafelspitz in stock") {
+            REQUIRE_CALL(warehouse, hasInventory("Tafelspitz", 1))
+                    .RETURN(false);
+
+            THEN("we are notified that we have just run out of stock") {
+                outOfWaresSpy.wait(10);
+
+                REQUIRE(outOfWaresSpy.count() == 1);
+            }
+        }
+        }
+    }
+}
+</code></pre>
+<p>As you can see, the test code is now structured with Catchs BDD testing style syntax.</p>
+<p>In my opinion, BDD style tests are easier to understand and read than classical unit tests.</p>
+<p>Now when we take a look at a possible error message produced by Catch:</p>
+<pre><code>-------------------------------------------------------------------------------
+Automatically ordering wares with AutoOrder works
+     Given: We have an auto order of 1 Tafelspitz
+      When: We start the auto order
+  And when: we don't have enough Tafelspitz in stock
+      Then: we are notified that we have just run out of stock
+-------------------------------------------------------------------------------
+../../qt-qmake-catch-and-trompeloeil-seed/tests/tst_apptests.cpp:92
+...............................................................................
+
+../../qt-qmake-catch-and-trompeloeil-seed/tests/tst_apptests.cpp:95: FAILED:
+  REQUIRE( outOfWaresSpy.count() == 0 )
+with expansion:
+  1 == 0
+</code></pre>
+<p>We see that the BDD testing not only shows us where the error occurred but also what lead to the error in a natural language.</p>
+<h2>Conclusion</h2>
+<p>In this article, you have learned how to set up Qt with qmake for unit testing with Catch and Trompeloeil.</p>
+<p>Moreover, you have learned how to write tests for event-driven as well non-event-driven parts of the code.</p>
+<p>For reference, you can <a href="https://github.com/machinekoder/qt-qmake-catch-and-trompeloeil-seed">download the complete code created to write this tutorial from GitHub</a>.</p>
+<p>I hope you have enjoyed this tutorial and I thankful for any feedback, suggestions or your opinions on BDD-style unit testing.</p>
+<p>Your<br>
+Machine Koder</br></p>

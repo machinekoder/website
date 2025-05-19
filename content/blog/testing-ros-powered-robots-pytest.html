@@ -1,0 +1,103 @@
+<!--
+{
+  "title": "Testing ROS powered Robots with pytest",
+  "date": "2018-03-25T19:50:27",
+  "slug": "testing-ros-powered-robots-pytest",
+  "original_url": "https://machinekoder.com/testing-ros-powered-robots-pytest/",
+  "featured_image": "/static/blog_images/testing-ros-powered-robots-pytest/pytest_ros.png"
+}
+-->
+<span class="rt-reading-time" style="display: block;"><span class="rt-label rt-prefix"></span> <span class="rt-time">3</span> <span class="rt-label rt-postfix">minutes read<br/></span></span><p>In this article, you will learn how to use Pytest to successfully test ROS powered robots. In particular I explain how to employ pytest for testing ROS nodes.</p>
+<h2>Introduction</h2>
+<p><a href="https://ros.org">ROS, the Robot Operating System</a>, which is actually no operating system but a middleware plus a huge number of tools to build a distributed system, comes with excellent Python bindings.</p>
+<p>ROS uses its own package format and build tool called <code>catkin</code> which streamlines processes such as builds, documentation, and testing.</p>
+<p>However, one thing that really dissatisfied me was that it only supports <a href="https://docs.python.org/2/library/unittest.html">Python unittest</a> and <a href="http://nose.readthedocs.io/en/latest/">nosetests</a> per default.</p>
+<p>In my opinion, <a href="https://docs.pytest.org/en/latest/">pytest</a> is the far better unit testing framework for Python, as it drastically simplifies the process of writing tests which in the end leads to more tested code and better software.</p>
+<p>Luckily, <a href="http://wiki.ros.org/rostest">rostest</a> does not really care which tool is used to run the unit tests, as long as it outputs <a href="https://www.ibm.com/support/knowledgecenter/en/SSQ2R2_14.0.0/com.ibm.rsar.analysis.codereview.cobol.doc/topics/cac_useresults_junit.html">JUnit XML</a> compatible reports.</p>
+<p>Since documentation on testing ROS nodes is sparse in general, I decided to write this short little blog post in case me or someone else needs a starting point in the future.</p>
+<h3>rostest and Python</h3>
+<p>As already mentioned, I found the official documentation on how to successfully use rostest with Python very sparse.</p>
+<p>Here is what I found:<br>
+* <a href="http://wiki.ros.org/rostest/Writing">Official rostest documentation</a><br/>
+* <a href="https://github.com/ros/ros_tutorials/tree/kinetic-devel/rospy_tutorials/test">Test examples</a><br/>
+* <a href="http://catkin-tools.readthedocs.io/en/latest/verbs/catkin_build.html#building-and-running-tests">How to run tests with catkin</a></br></p>
+<p>Based on the documentation, I managed to build an example project with working unit and integration tests.</p>
+<h2>Pytest integration</h2>
+<p>ROS calls its unit tests with gtest-style parameters, meaning that it passed the output file with the <code>--gtest_output</code> parameter to the unit test.</p>
+<p>pytest has a slightly different syntax, instead of the <code>--gtest_output</code> parameter, it expects the <code>--junitxml</code> argument.</p>
+<p>Therefore, I decided to add a small <code>pytest_runner.py</code> script to the project:</p>
+<pre><code class="python">#!/usr/bin/env python
+from __future__ import print_function
+
+import os
+import sys
+import rospy
+import pytest
+
+
+def get_output_file():
+    for arg in sys.argv:
+        if arg.startswith('--gtest_output'):
+            return arg.split('=xml:')[1]
+
+    raise RuntimeError('No output file has been passed')
+
+
+if __name__ == '__main__':
+    output_file = get_output_file()
+    test_module = rospy.get_param('test_module')
+    runner_path = os.path.dirname(os.path.realpath(__file__))
+    module_path = os.path.join(runner_path, test_module)
+
+    sys.exit(
+        pytest.main([module_path, '--junitxml={}'.format(output_file)])
+    )
+</code></pre>
+<p>The runner script converts the output file parameter to the pytest supported format. Additionally, it passes the test directory pytest.</p>
+<p>The test directory is constructed from the runner script path and a <code>test_module</code> name passed via ROS param.</p>
+<p>The accompanying ROS test launcher file <code>listener_test.launch</code> looks as follows:</p>
+<pre><code class="xml">&lt;launch&gt;
+  &lt;node pkg="my_pkg" type="publisher" name="publisher" /&gt;
+  &lt;param name="test_module" value="listener"/&gt;
+  &lt;test test-name="test_listener" pkg="my_pkg" type="pytest_runner.py" /&gt;
+&lt;/launch&gt;
+</code></pre>
+<p>rostest starts the <code>publisher</code> node in the <code>my_pkg</code> package and then runs the pytest runner. Therefore, all pytests will be run with the same publisher instance. If you want to restart the publisher node during tests, you need to separate them into different test_modules.</p>
+<p>We can start the tests with <code>catkin run_tests --this</code> inside the ROS package directory.</p>
+<p>As output, we get something along the lines of:</p>
+<pre><code>[Testcase: testtest_listener] ... ok
+
+[ROSTEST]-----------------------------------------------------------------------
+
+[my_pkg.rosunit-test_listener/test_listener_receives_something][passed]
+[my_pkg.rosunit-test_listener/test_listener_receives_hello_mesage][passed]
+
+SUMMARY
+ * RESULT: SUCCESS
+ * TESTS: 2
+ * ERRORS: 0
+ * FAILURES: 0
+
+rostest log file is in /home/alexander/.ros/log/rostest-pc-26218.log
+-- run_tests.py: verify result "/home/alexander/projects/ros/build/my_pkg/test_results/my_pkg/rostest-tests_listener_test.xml"
+</code></pre>
+<h2>Unit tests vs ROS node tests</h2>
+<p>The really great thing about pytest is that it really makes unit testing easy and quick. To shorten you feedback loops I recommend you to clearly distinguish between unit tests and ROS node or integration tests.</p>
+<p>A well-developed software module should be easily testable with unit test, if it is not you should probably <a href="https://developertesting.rocks/book/">reconsider your software design</a>. With pytest you can place your unit tests physically close to your source code files, I prefer to place them in a <code>tests</code> folder inside the module.</p>
+<p>Integration tests, on the other hand, test the integration between different components and take usually a long time to execute. In the case of ROS node tests, this includes spinning up multiple ROS nodes for example.</p>
+<p>Since we as developers don't like to wait for tests to execute, we will very likely run the ROS node tests less frequently. Therefore, it makes sense to separate execution of unit tests from the execution of integration and ROS node tests during development.</p>
+<p>For this purpose, I run pytest directly in my Python module inside the source directory, skipping rostest.</p>
+<p>Nevertheless, we should not skip the unit tests in when running the rest of the tests:</p>
+<pre><code class="xml">&lt;launch&gt;
+  &lt;param name="test_module" value="../src"/&gt;
+  &lt;test test-name="test_lib" pkg="my_pkg" type="pytest_runner.py" /&gt;
+&lt;/launch&gt;
+</code></pre>
+<h2>Conclusion</h2>
+<p>In this blog post, you learned about using pytest for testing ROS nodes.</p>
+<p>I uploaded the example project to<br/>
+<a href="https://github.com/machinekoder/pytest-ros-node-example">GitHub</a> for<br/>
+you to reproduce the steps described in this article.</p>
+<p>I hope this blog post was interesting for you and I would like to hear your feedback. Don't forget to subscribe to get updated with new articles.</p>
+<p>Your<br/>
+Machine Koder</p>

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="results">
+    <div class="results-header">
+        <h1>Archived Project Results</h1>
+        <p class="subtitle">Historical Industrial UI/UX Solutions and Machine Tool Interfaces from Machine Koder</p>
+    </div>
+
+    <div class="results-grid">
+        {% for project in projects %}
+        <article class="result-card">
+            <a href="/results/{{ project.slug }}.html" style="text-decoration:none;color:inherit;">
+            <div class="result-content">
+                <h2>{{ project.title }}</h2>
+                <div class="description">{{ project.content|striptags|truncate(180, True, '...') }}</div>
+            </div>
+            </a>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<style>
+    .results {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .results-header {
+        text-align: center;
+        margin-bottom: 4rem;
+    }
+
+    .results-header h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+        font-size: 1.25rem;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 2rem;
+    }
+
+    .result-card {
+        background: var(--secondary-bg);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
+    }
+
+    .result-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .result-content {
+        padding: 2rem;
+    }
+
+    .result-card h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+    }
+
+    .description {
+        color: rgba(255, 255, 255, 0.8);
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .tags {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .tag {
+        background: rgba(0, 255, 157, 0.1);
+        color: var(--primary-color);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+        .results-header h1 {
+            font-size: 2.5rem;
+        }
+
+        .results-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %} 
