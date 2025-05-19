@@ -36,12 +36,14 @@
             background: linear-gradient(45deg, var(--secondary-bg), var(--bg-color));
             padding: 2rem 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
         }
 
         nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
         }
 
         .logo {
@@ -54,6 +56,7 @@
         .nav-links {
             display: flex;
             gap: 2rem;
+            align-items: center;
         }
 
         .nav-links a {
@@ -66,6 +69,17 @@
             color: var(--primary-color);
         }
 
+        .nav-archive {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-archive span {
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
         .mobile-menu-btn {
             display: none;
             background: none;
@@ -74,6 +88,7 @@
             font-size: 1.5rem;
             cursor: pointer;
             padding: 0.5rem;
+            z-index: 101;
         }
 
         main {
@@ -131,67 +146,32 @@
 
             .nav-links {
                 display: none;
-                position: absolute;
-                top: 100%;
+                position: fixed;
+                top: 0;
                 left: 0;
                 right: 0;
                 background: var(--secondary-bg);
-                padding: 1rem;
+                padding: 5rem 1rem 1rem;
                 flex-direction: column;
                 align-items: center;
                 gap: 1rem;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 z-index: 100;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }
 
             .nav-links.active {
                 display: flex;
             }
 
+            .nav-archive {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
             .hero h1 {
                 font-size: 2.5rem;
             }
-        }
-
-        .nav-archive-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-        .archive-link {
-            color: var(--text-color);
-            text-decoration: none;
-            cursor: pointer;
-            padding: 0 0.5rem;
-            transition: color 0.3s ease;
-        }
-        .archive-link:hover {
-            color: var(--primary-color);
-        }
-        .archive-dropdown-content {
-            display: none;
-            position: absolute;
-            background: var(--secondary-bg);
-            min-width: 180px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            z-index: 10;
-            border-radius: 8px;
-            margin-top: 0.5rem;
-            right: 0;
-        }
-        .archive-dropdown-content a {
-            color: var(--text-color);
-            padding: 0.75rem 1.25rem;
-            text-decoration: none;
-            display: block;
-            border-radius: 8px;
-            transition: background 0.2s, color 0.2s;
-        }
-        .archive-dropdown-content a:hover {
-            background: var(--primary-color);
-            color: var(--bg-color);
-        }
-        .nav-archive-dropdown.open .archive-dropdown-content {
-            display: block;
         }
     </style>
 </head>
@@ -204,12 +184,10 @@
                 <div class="nav-links" id="navLinks">
                     <a href="/">Home</a>
                     <a href="/about.html">About</a>
-                    <div class="nav-archive-dropdown" id="archiveDropdown">
-                        <a href="#" class="archive-link" id="archiveToggle" data-toggle="dropdown">Archive ▾</a>
-                        <div class="archive-dropdown-content">
-                            <a href="/results.html">Project Results</a>
-                            <a href="/blog.html">Blog</a>
-                        </div>
+                    <div class="nav-archive">
+                        <span>Archive:</span>
+                        <a href="/results.html">Results</a>
+                        <a href="/blog.html">Blog</a>
                     </div>
                 </div>
             </nav>
@@ -254,36 +232,6 @@
             // Prevent clicks inside nav-links from closing the menu
             navLinks.addEventListener('click', (e) => {
                 e.stopPropagation();
-            });
-        }
-
-        // Dropdown toggle for Archive
-        const archiveToggle = document.getElementById('archiveToggle');
-        const archiveDropdown = document.getElementById('archiveDropdown');
-        let closeTimeout = null;
-        if (archiveToggle && archiveDropdown) {
-            archiveToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent event from bubbling up
-                archiveDropdown.classList.toggle('open');
-            });
-            // Optional: close dropdown when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!archiveDropdown.contains(e.target) && archiveDropdown.classList.contains('open')) {
-                    archiveDropdown.classList.remove('open');
-                }
-            });
-            // Add mouseenter/mouseleave for delayed close
-            archiveDropdown.addEventListener('mouseenter', function() {
-                if (closeTimeout) {
-                    clearTimeout(closeTimeout);
-                    closeTimeout = null;
-                }
-            });
-            archiveDropdown.addEventListener('mouseleave', function() {
-                closeTimeout = setTimeout(function() {
-                    archiveDropdown.classList.remove('open');
-                }, 1000); // 1000ms delay
             });
         }
     </script>
