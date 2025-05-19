@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Build with Python
-        run: python src/generate.py
+        run: python src/generator.py
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
