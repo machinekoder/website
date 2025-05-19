@@ -69,11 +69,14 @@ class StaticSiteGenerator:
                 featured_img_tag = f'<img class="featured-image" src="{meta["featured_image"]}" alt="Featured image">'
             # Rewrite image sources and prepend featured image if present
             content = featured_img_tag + self._rewrite_image_sources(content, slug)
+            # Parse the date and keep both the datetime object and formatted string
+            date_obj = datetime.strptime(meta.get('date', '2000-01-01T00:00:00'), '%Y-%m-%dT%H:%M:%S')
             post = {
                 'title': meta.get('title', 'Untitled'),
                 'content': content,
                 'excerpt': self._clean_excerpt(BeautifulSoup(content, 'html.parser').get_text()[:300]),
-                'date': datetime.strptime(meta.get('date', '2000-01-01T00:00:00'), '%Y-%m-%dT%H:%M:%S').strftime('%B %d, %Y'),
+                'date': date_obj,
+                'date_formatted': date_obj.strftime('%B %d, %Y'),
                 'slug': slug,
                 'original_url': meta.get('original_url', ''),
             }
