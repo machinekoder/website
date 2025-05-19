@@ -66,6 +66,16 @@
             color: var(--primary-color);
         }
 
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
         main {
             padding: 4rem 0;
         }
@@ -115,8 +125,27 @@
         }
 
         @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
             .nav-links {
                 display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--secondary-bg);
+                padding: 1rem;
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                z-index: 100;
+            }
+
+            .nav-links.active {
+                display: flex;
             }
 
             .hero h1 {
@@ -171,7 +200,8 @@
         <div class="container">
             <nav>
                 <a href="/" class="logo">{{ config.name }}</a>
-                <div class="nav-links">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+                <div class="nav-links" id="navLinks">
                     <a href="/">Home</a>
                     <a href="/about.html">About</a>
                     <div class="nav-archive-dropdown" id="archiveDropdown">
@@ -204,34 +234,51 @@
     </footer>
 
     <script>
-    // Dropdown toggle for Archive
-    const archiveToggle = document.getElementById('archiveToggle');
-    const archiveDropdown = document.getElementById('archiveDropdown');
-    let closeTimeout = null;
-    if (archiveToggle && archiveDropdown) {
-        archiveToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            archiveDropdown.classList.toggle('open');
-        });
-        // Optional: close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!archiveDropdown.contains(e.target) && archiveDropdown.classList.contains('open')) {
-                archiveDropdown.classList.remove('open');
-            }
-        });
-        // Add mouseenter/mouseleave for delayed close
-        archiveDropdown.addEventListener('mouseenter', function() {
-            if (closeTimeout) {
-                clearTimeout(closeTimeout);
-                closeTimeout = null;
-            }
-        });
-        archiveDropdown.addEventListener('mouseleave', function() {
-            closeTimeout = setTimeout(function() {
-                archiveDropdown.classList.remove('open');
-            }, 1000); // 1000ms delay
-        });
-    }
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const navLinks = document.getElementById('navLinks');
+        
+        if (mobileMenuBtn && navLinks) {
+            mobileMenuBtn.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+            });
+
+            // Close mobile menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!navLinks.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+                    navLinks.classList.remove('active');
+                }
+            });
+        }
+
+        // Dropdown toggle for Archive
+        const archiveToggle = document.getElementById('archiveToggle');
+        const archiveDropdown = document.getElementById('archiveDropdown');
+        let closeTimeout = null;
+        if (archiveToggle && archiveDropdown) {
+            archiveToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                archiveDropdown.classList.toggle('open');
+            });
+            // Optional: close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!archiveDropdown.contains(e.target) && archiveDropdown.classList.contains('open')) {
+                    archiveDropdown.classList.remove('open');
+                }
+            });
+            // Add mouseenter/mouseleave for delayed close
+            archiveDropdown.addEventListener('mouseenter', function() {
+                if (closeTimeout) {
+                    clearTimeout(closeTimeout);
+                    closeTimeout = null;
+                }
+            });
+            archiveDropdown.addEventListener('mouseleave', function() {
+                closeTimeout = setTimeout(function() {
+                    archiveDropdown.classList.remove('open');
+                }, 1000); // 1000ms delay
+            });
+        }
     </script>
 </body>
 </html> 
