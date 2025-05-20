@@ -7,6 +7,7 @@ config = {
         'github': 'https://github.com/machinekoder',
         'linkedin': 'https://linkedin.com/in/alex-poss-machinekoder',
     },
+    'ga_tracking_id': 'G-GLHHX4XB83',  # Replace with your actual Google Analytics tracking ID
     'skills': [
         {
             'title': 'Programming Languages',
