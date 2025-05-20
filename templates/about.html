@@ -7,7 +7,7 @@
     </div>
     <div class="about-content">
         <p>I worked as a freelance software engineer under the company name <strong>Machine Koder</strong> from 2017 to 2025, specializing in embedded systems, robotics, and HMI development.</p>
-        <div class="company-logo-placeholder"></div>
+        <img src="/static/images/logo.png" alt="Machine Koder Logo" class="company-logo">
         <p>This was a significant period in my career, but I am now working at another company, continuing to grow and apply my expertise in new environments.</p>
         <p>The <strong>Archive</strong> section of this website contains blog posts and project results from my time as a freelancer at Machine Koder.</p>
     </div>
@@ -34,32 +34,13 @@
         color: rgba(255, 255, 255, 0.8);
         margin-bottom: 1.5rem;
     }
-    .company-logo-placeholder {
-        width: 100px;
+    .company-logo {
+        width: 291px;
         height: 100px;
         margin: 1.5rem auto 1.5rem auto;
         border-radius: 16px;
-        background: linear-gradient(135deg, var(--primary-color) 60%, var(--accent-color) 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
         box-shadow: 0 4px 24px rgba(0,255,157,0.15);
-        position: relative;
-    }
-    .company-logo-placeholder::after {
-        content: "Logo";
-        color: var(--bg-color);
-        font-size: 1.1rem;
-        font-weight: 600;
-        letter-spacing: 1px;
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        text-align: center;
-        opacity: 0.7;
-        pointer-events: none;
+        display: block;
     }
     .about-content p {
         color: rgba(255, 255, 255, 0.9);
@@ -70,8 +51,8 @@
         .about-header h1 {
             font-size: 2rem;
         }
-        .company-logo-placeholder {
-            width: 70px;
+        .company-logo {
+            width: 204px;
             height: 70px;
         }
     }
