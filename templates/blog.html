@@ -10,7 +10,7 @@
     <div class="blog-grid">
         {% for post in posts|sort(attribute='date', reverse=true) %}
         <article class="blog-card">
-            <a href="/blog/{{ post.slug }}" class="blog-card-link">
+            <a href="/{{ post.slug }}" class="blog-card-link">
             <div class="blog-card-content">
                 <h2>{{ post.title }}</h2>
                 <div class="post-meta">

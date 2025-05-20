@@ -21,7 +21,7 @@ class StaticSiteGenerator:
         self.templates_dir = self.base_dir / "templates"
         self.static_dir = self.base_dir / "static"
         self.output_dir = self.base_dir / "output"
-        self.blog_posts_dir = self.output_dir / "blog"
+        self.blog_posts_dir = self.output_dir
         self.results_dir = self.output_dir / "results"
         
         # Initialize Jinja2 environment

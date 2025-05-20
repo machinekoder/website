@@ -3,7 +3,7 @@
 {% block content %}
 <section class="hero">
     <div class="headshot-wrapper">
-        <img src="/static/images/headshot.webp" alt="Headshot" class="headshot-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <img src="/static/images/headshot.webp" alt="Headshot" class="headshot-img" width="240" height="240" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
         <div class="headshot-placeholder">Your Photo</div>
     </div>
     <h1>{{ config.name }}</h1>
@@ -88,10 +88,11 @@
         align-items: center;
         justify-content: center;
     }
-    .headshot-img {
+    .headshot-img,
+    .headshot-placeholder {
         width: 80%;
         max-width: 240px;
-        height: auto;
+        height: 240px;
         object-fit: cover;
         border-radius: 50%;
         box-shadow: 0 4px 24px rgba(0,255,157,0.15);
@@ -101,18 +102,9 @@
         margin: 0 auto;
     }
     .headshot-placeholder {
-        width: 80%;
-        max-width: 240px;
-        height: auto;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-color) 60%, var(--accent-color) 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 24px rgba(0,255,157,0.15);
-        position: absolute;
-        left: 0;
-        top: 0;
         color: var(--bg-color);
         font-size: 1.1rem;
         font-weight: 600;
