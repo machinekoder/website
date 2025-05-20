@@ -154,6 +154,9 @@ class StaticSiteGenerator:
             if src and not src.startswith('/static/blog_images/'):
                 img_filename = os.path.basename(src.split('?')[0])
                 img['src'] = f'/static/blog_images/{slug}/{img_filename}'
+            # Remove srcset attribute if present
+            if 'srcset' in img.attrs:
+                del img['srcset']
         return str(soup)
 
     def _rewrite_result_image_links(self, html: str, slug: str) -> str:
