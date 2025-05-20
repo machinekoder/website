@@ -8,6 +8,9 @@ from bs4 import BeautifulSoup
 from jinja2 import Environment, FileSystemLoader
 from slugify import slugify
 import re
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+from config import config
 
 BLOG_DIR = Path('content/blog')
 RESULTS_DIR = Path('content/results')
@@ -165,15 +168,5 @@ class StaticSiteGenerator:
         return str(soup)
 
 if __name__ == "__main__":
-    config = {
-        'name': 'Alexander Poss',
-        'title': 'Senior Software Engineer',
-        'description': 'Experienced Software Engineer specializing in embedded systems, robotics, and HMI, with a strong background in Qt, C++, and open-source development.',
-        'wordpress_url': 'https://machinekoder.com',  # Optional
-        'social_links': {
-            'github': 'https://github.com/machinekoder',
-            'linkedin': 'https://linkedin.com/in/alex-poss-machinekoder',
-        }
-    }
     generator = StaticSiteGenerator()
     generator.generate_site(config) 

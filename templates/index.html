@@ -18,33 +18,16 @@
 <section class="skills">
     <h2>Technical Expertise</h2>
     <div class="skills-grid">
+        {% for skill_group in config['skills'] %}
         <div class="skill-card">
-            <h3>Programming Languages</h3>
+            <h3>{{ skill_group['title'] }}</h3>
             <ul>
-                <li>Qt</li>
-                <li>QML</li>
-                <li>C++</li>
-                <li>C</li>
+                {% for skill in skill_group['items'] %}
+                <li>{{ skill }}</li>
+                {% endfor %}
             </ul>
         </div>
-        <div class="skill-card">
-            <h3>Systems and Design</h3>
-            <ul>
-                <li>Embedded Systems</li>
-                <li>HMI</li>
-                <li>Model Centric SW</li>
-                <li>Code Generators</li>
-            </ul>
-        </div>
-        <div class="skill-card">
-            <h3>Advanced Skills</h3>
-            <ul>
-                <li>Python</li>
-                <li>JavaScript</li>
-                <li>Networking</li>
-                <li>Distributed Systems</li>
-            </ul>
-        </div>
+        {% endfor %}
     </div>
 </section>
 
