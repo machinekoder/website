@@ -7,4 +7,5 @@ markdown==3.5.1
 python-slugify==8.0.1
 aiofiles==23.2.1
 uvicorn==0.24.0
-watchdog 
+watchdog
+Pillow==10.2.0 
