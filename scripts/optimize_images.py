@@ -19,21 +19,31 @@ def optimize_image(input_path, output_path, max_size=(1200, 1200), quality=85):
         img.save(output_path, 'WEBP', quality=quality, optimize=True)
 
 def main():
+    # navigate to root directory
+    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
     # Create output directory if it doesn't exist
     os.makedirs('static/images/optimized', exist_ok=True)
     
     # Optimize headshot
-    optimize_image(
-        'static/images/headshot.png',
-        'static/images/optimized/headshot.webp',
-        max_size=(1200, 1200)
-    )
+    # optimize_image(
+    #     'static/images/headshot.webp',
+    #     'static/images/optimized/headshot.webp',
+    #     max_size=(480, 480)
+    # )
     
     # Optimize logo
+    # optimize_image(
+    #     'static/images/logo.webp',
+    #     'static/images/optimized/logo.webp',
+    #     max_size=(400, 400)
+    # )
+
+    # optimize favicon
     optimize_image(
-        'static/images/logo.png',
-        'static/images/optimized/logo.webp',
-        max_size=(800, 800)
+        'static/images/favicon.png',
+        'static/images/favicon.webp',
+        max_size=(48, 48)
     )
 
 if __name__ == '__main__':
